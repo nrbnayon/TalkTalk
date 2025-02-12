@@ -41,4 +41,14 @@ export default {
     email: process.env.ADMIN_EMAIL,
     password: process.env.ADMIN_PASSWORD,
   },
+  security: {
+    rateLimit: {
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW || '60000'),
+      max: parseInt(process.env.RATE_LIMIT_MAX || '10'),
+      message:
+        '🚫 Whoa there! Too many login attempts with same ip. Take a coffee break ☕ and try again in 15 minutes!',
+      standardHeaders: true,
+      legacyHeaders: false,
+    },
+  },
 };
