@@ -13,7 +13,7 @@ const handleZodError = (error: ZodError) => {
   const statusCode = 400;
   return {
     statusCode,
-    message: 'Validation Error',
+    message: '❌ Validation Error: Please check the provided data.',
     errorMessages,
   };
 };

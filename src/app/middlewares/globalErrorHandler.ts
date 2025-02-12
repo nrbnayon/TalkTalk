@@ -7,28 +7,65 @@ import { errorLogger } from '../../shared/logger';
 import { IErrorMessage } from '../../types/errors.types';
 import { StatusCodes } from 'http-status-codes';
 
+const errorEmojis = {
+  default: '🤯',
+  validation: '🧐',
+  jwt: '🕵️',
+  zod: '🔍',
+  api: '⚡',
+  server: '💥',
+};
+
+const funnyPhrases = [
+  'Oops! Something went sideways 🙃',
+  'Looks like our code had too much coffee ☕',
+  'Whoopsie-daisy! 🌼',
+  'Houston, we have a problem 🚀',
+  'Error: Reality check failed 🤖',
+  'Quantum uncertainty detected 🌌',
+  'Code went on an unexpected vacation 🏖️',
+];
+
+const getFunnyErrorFact = (): string => {
+  const funFacts = [
+    'Did you know? Errors are just undocumented features! 🤓',
+    'Error handling: Where code goes to think about its mistakes 🤔',
+    "Bugs are not a bug, they're a feature in progress! 🐛",
+    'Every error is just an opportunity for a creative solution 🚀',
+    "Code doesn't break. It just takes an unexpected detour 🛣️",
+    'TypeScript: Because JavaScript needs adult supervision 👀',
+    'Error messages are just love notes from your compiler 💌',
+  ];
+  return funFacts[Math.floor(Math.random() * funFacts.length)];
+};
+
 const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
+  // Logging with a touch of humor
+  const logMessage = `🎪 Error Circus:: ${
+    funnyPhrases[Math.floor(Math.random() * funnyPhrases.length)]
+  }`;
+
   config.node_env === 'development'
-    ? console.log('🚨 globalErrorHandler ~~ ', error)
-    : errorLogger.error('🚨 globalErrorHandler ~~ ', error);
+    ? console.log('🚨 globalErrorHandler ~~ ', logMessage, error)
+    : errorLogger.error('🚨 globalErrorHandler ~~ ', logMessage, error);
 
   let statusCode = 500;
-  let message = 'Something went wrong';
+  let message = `${errorEmojis.server} Something went wrong`;
   let errorMessages: IErrorMessage[] = [];
 
   if (error.name === 'ZodError') {
     const simplifiedError = handleZodError(error);
     statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
+    message = `${errorEmojis.zod} Zod's crystal ball found some issues:: ${simplifiedError.message}`;
     errorMessages = simplifiedError.errorMessages;
   } else if (error.name === 'ValidationError') {
     const simplifiedError = handleValidationError(error);
     statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
+    message = `${errorEmojis.validation} Validation went wild! ${simplifiedError.message}`;
     errorMessages = simplifiedError.errorMessages;
-  }else if (error.name === 'TokenExpiredError') {
-    statusCode = StatusCodes.UNAUTHORIZED
-    message = 'Session Expired'
+  } else if (error.name === 'TokenExpiredError') {
+    statusCode = StatusCodes.UNAUTHORIZED;
+    message = `${errorEmojis.jwt} ⏳ Token took an early retirement!`;
     errorMessages = error?.message
       ? [
           {
@@ -37,23 +74,21 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
               'Your session has expired. Please log in again to continue.',
           },
         ]
-      : []
+      : [];
   } else if (error.name === 'JsonWebTokenError') {
-    statusCode = StatusCodes.UNAUTHORIZED
-    message = 'Invalid Token'
+    statusCode = StatusCodes.UNAUTHORIZED;
+    message = `${errorEmojis.jwt} Token playing hide and seek!`;
     errorMessages = error?.message
       ? [
           {
             path: '',
-            message:
-              'Your token is invalid. Please log in again to continue.',
+            message: 'Your token is invalid. Please log in again to continue.',
           },
         ]
-      : []
-  }
-  else if (error instanceof ApiError) {
+      : [];
+  } else if (error instanceof ApiError) {
     statusCode = error.statusCode;
-    message = error.message;
+    message = `${errorEmojis.api} Custom Error Rollercoaster:: ${error.message}`;
     errorMessages = error.message
       ? [
           {
@@ -63,7 +98,7 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
         ]
       : [];
   } else if (error instanceof Error) {
-    message = error.message;
+    message = `${errorEmojis.default} Generic Error Parade:: ${error.message}`;
     errorMessages = error.message
       ? [
           {
@@ -79,6 +114,7 @@ const globalErrorHandler: ErrorRequestHandler = (error, req, res, next) => {
     message,
     errorMessages,
     stack: config.node_env !== 'production' ? error?.stack : undefined,
+    funFact: getFunnyErrorFact(),
   });
 };
 
