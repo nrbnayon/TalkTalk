@@ -1,15 +1,574 @@
 {
 	"info": {
-		"_postman_id": "3cef733f-9769-4b96-8825-986712876c38",
-		"name": "Chat",
+		"_postman_id": "6204e4b2-e111-443a-ac32-25088467f855",
+		"name": "Chatting/Messages",
 		"description": "# Chat System API Documentation\n\n## Base URL\n\n```\nhttp://localhost:5000/api/v1\n\n ```\n\n## Authentication\n\nAll endpoints require authentication using JWT token in the Authorization header:\n\n```\nAuthorization: Bearer <your_jwt_token>\n\n ```\n\n## API Endpoints\n\n### Chat Module\n\n#### 1\\. Access Chat\n\nCreate or access a one-on-one chat with another user.\n\n``` http\nPOST /chat\nContent-Type: application/json\n{\n    \"userId\": \"target_user_id\"\n}\n\n ```\n\n#### 2\\. Get All Chats\n\nRetrieve all chats for the current user.\n\n``` http\nGET /chat\n\n ```\n\n#### 3\\. Create Group Chat\n\nCreate a new group chat.\n\n``` http\nPOST /chat/group\nContent-Type: application/json\n{\n    \"name\": \"Group Name\",\n    \"users\": [\"user_id_1\", \"user_id_2\"]\n}\n\n ```\n\n#### 4\\. Rename Group\n\nRename an existing group chat.\n\n``` http\nPATCH /chat/rename\nContent-Type: application/json\n{\n    \"chatId\": \"chat_id\",\n    \"chatName\": \"New Group Name\"\n}\n\n ```\n\n#### 5\\. Remove User from Group\n\nRemove a user from a group chat.\n\n``` http\nPATCH /chat/groupremove\nContent-Type: application/json\n{\n    \"chatId\": \"chat_id\",\n    \"userId\": \"user_id_to_remove\"\n}\n\n ```\n\n#### 6\\. Add User to Group\n\nAdd a user to a group chat.\n\n``` http\nPATCH /chat/groupadd\nContent-Type: application/json\n{\n    \"chatId\": \"chat_id\",\n    \"userId\": \"user_id_to_add\"\n}\n\n ```\n\n### Message Module\n\n#### 1\\. Send Message\n\nSend a new message in a chat.\n\n``` http\nPOST /message\nContent-Type: application/json\n{\n    \"content\": \"Message content\",\n    \"chatId\": \"chat_id\",\n    \"replyToId\": \"message_id_to_reply\" // Optional\n}\n\n ```\n\n#### 2\\. Get Chat Messages\n\nRetrieve all messages for a specific chat.\n\n``` http\nGET /message/:chatId\n\n ```\n\n#### 3\\. Edit Message\n\nEdit an existing message.\n\n``` http\nPATCH /message/:messageId/edit\nContent-Type: application/json\n{\n    \"content\": \"Updated message content\"\n}\n\n ```\n\n#### 4\\. Delete Message\n\nDelete a message.\n\n``` http\nDELETE /message/:messageId\n\n ```\n\n#### 5\\. Mark Message as Read\n\nMark a message as read.\n\n``` http\nPATCH /message/:messageId/read\n\n ```\n\n#### 6\\. Toggle Pin Message\n\nToggle pin status of a message.\n\n``` http\nPATCH /message/:messageId/pin\n\n ```\n\n#### 7\\. Search Messages\n\nSearch messages with filters.\n\n``` http\nGET /message/search?searchTerm=keyword&chatId=chat_id&isPinned=true&startDate=2024-02-01&endDate=2024-02-12\n\n ```\n\n#### 8\\. Get Unseen Message Count\n\nGet count of unseen messages in a chat.\n\n``` http\nGET /message/:chatId/unseen\n\n ```\n\n## Socket Events Testing\n\n### Setup in Postman\n\n1. Create a new WebSocket request\n    \n2. Connect to: `ws://localhost:5000`\n    \n3. Authorization: Bearer\n    \n\n### Socket Events to Test\n\n#### User Connection Events\n\n``` javascript\n// Emit when user comes online\nsocket.emit('user-online', userId);\n// Listen for online users update\nsocket.on('online-users-update', (onlineUsers) => {\n    console.log('Online users:', onlineUsers);\n});\n\n ```\n\n#### Chat Room Events\n\n``` javascript\n// Join a chat room\nsocket.emit('join-chat', chatId);\n// Leave a chat room\nsocket.emit('leave-chat', chatId);\n\n ```\n\n#### Typing Indicators\n\n``` javascript\n// Start typing\nsocket.emit('typing-start', {\n    chatId: 'chat_id',\n    userId: 'user_id'\n});\n// Stop typing\nsocket.emit('typing-stop', {\n    chatId: 'chat_id',\n    userId: 'user_id'\n});\n// Listen for typing updates\nsocket.on('typing-update', (data) => {\n    console.log('Typing status:', data);\n});\n\n ```\n\n#### Message Events\n\n``` javascript\n// Send new message\nsocket.emit('new-message', messageObject);\n// Listen for new messages\nsocket.on('message-received', (message) => {\n    console.log('New message:', message);\n});\n// Mark message as read\nsocket.emit('message-read', {\n    messageId: 'message_id',\n    chatId: 'chat_id',\n    userId: 'user_id'\n});\n\n ```\n\n#### Call Events\n\n``` javascript\n// Initiate call\nsocket.emit('call-initiate', {\n    chatId: 'chat_id',\n    callType: 'video', // or 'audio'\n    participants: ['user_id_1', 'user_id_2']\n});\n// Accept call\nsocket.emit('call-accept', callId);\n// Reject call\nsocket.emit('call-reject', callId);\n// End call\nsocket.emit('call-end', callId);\n// Listen for call events\nsocket.on('call-incoming', (callSession) => {\n    console.log('Incoming call:', callSession);\n});\nsocket.on('call-status-update', (data) => {\n    console.log('Call status:', data);\n});\nsocket.on('call-ended', (data) => {\n    console.log('Call ended:', data);\n});\n\n ```\n\n## Code Review Notes\n\n1. const processUploadedFile = async (file: Express.Multer.File) => { // Add file processing logic here return { url: \\`/uploads/${file.filename}\\`, metadata: { size: file.size, mimeType: file.mimetype } };};\n    \n2. interface ICallSession { participants: Types.ObjectId\\[\\]; // Change from string\\[\\] to Types.ObjectId\\[\\] // ... rest of the interface}\n    \n3. Message Service File Upload:\n    \n\n- Add proper type handling for file uploads\n    \n- Implement file validation\n    \n- Add error handling for file processing\n    \n\n1. Connection Issues:\n    \n\n- Ensure MongoDB connection is properly configured\n    \n- Add error handling for database operations\n    \n- Implement connection pooling for better performance\n    \n\n1. Security Considerations:\n    \n\n- Implement rate limiting\n    \n- Add input validation\n    \n- Implement proper error handling\n    \n- Add request logging\n    \n\n**API & Socket Testing Documentation using Postman1. Setting Up Postman for API Testing**Before testing, make sure your server is running:bashCopyEditnpm run devorbashCopyEditnode index.js**2\\. API TestingUser Authentication APIs**MethodEndpointDescriptionRequired Fields`POST/auth/register`Register a new user`name, email, passwordPOST/auth/login`User login`email, password`**Chat APIs**MethodEndpointDescriptionRequired Fields`POST/chat`Start a new chat`userIdGET/chat`Get all chats for logged-in user-`POST/chat/group`Create a group chat`name, users[]PATCH/chat/rename`Rename a group chat`chatId, chatNamePATCH/chat/groupremove`Remove user from group`chatId, userIdPATCH/chat/groupadd`Add user to group`chatId, userId`**Message APIs**MethodEndpointDescriptionRequired Fields`POST/messages`Send a new message`content, chatIdGET/messages/:chatId`Get all messages of a chat-`PATCH/messages/:messageId/edit`Edit a message`contentDELETE/messages/:messageId`Delete a message-`PATCH/messages/:messageId/read`Mark message as read-`PATCH/messages/:messageId/pin`Pin/unpin a message-`GET/messages/search?searchTerm=word`Search messages`searchTerm`**3\\. WebSocket Testing**You can test WebSocket connections using **Postman** or **Socket.IO Client**.**Connecting a User**jsonCopyEdit{ \"event\": \"user-online\", \"data\": \"userId\"}**Sending a Message**jsonCopyEdit{ \"event\": \"new-message\", \"data\": { \"content\": \"Hello!\", \"chatId\": \"62dfsd23\" }}**Typing Indicator**jsonCopyEdit{ \"event\": \"typing-start\", \"data\": { \"chatId\": \"62dfsd23\", \"userId\": \"629sdj22\" }}**Call Events**jsonCopyEdit{ \"event\": \"call-initiate\", \"data\": { \"chatId\": \"6298sd88\", \"callType\": \"video\", \"participants\": \\[\"user1Id\", \"user2Id\"\\] }}**Final Steps**Now, everything should be working properly! 🚀EndFragment  \n  \n\n- **WebSocket URL:** `ws://localhost:5000`\n    \n- **Events & Payloads**\n    \n- **Base URL:** `http://localhost:5000/api/v1`",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "26684367",
-		"_collection_link": "https://alpha1-1602.postman.co/workspace/Bar-Bar-REST-API-WS~2e5ac130-951f-421e-bede-a612935fc071/collection/26684367-3cef733f-9769-4b96-8825-986712876c38?action=share&source=collection_link&creator=26684367"
+		"_exporter_id": "39055829"
 	},
 	"item": [
 		{
-			"name": "New Folder",
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Social Login",
+					"item": [
+						{
+							"name": "Google Login as USER",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"email\": \"user@gmail.com\",\r\n  \"name\": \"Google User\",\r\n  \"type\": \"GOOGLE\",\r\n  \"fcmToken\": \"firebase_cloud_messaging_token_here\",\r\n  \"role\": \"USER\",\r\n  \"image\": \"https://example.com/profile.jpg\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{iphost}}/auth/login-for-social",
+									"host": [
+										"{{iphost}}"
+									],
+									"path": [
+										"auth",
+										"login-for-social"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Google Login As HOST",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"email\": \"host@gmail.com\",\r\n  \"name\": \"Host Google User\",\r\n  \"type\": \"GOOGLE\",\r\n  \"fcmToken\": \"fcm_token_456\",\r\n  \"role\": \"HOST\",\r\n  \"image\": \"https://example.com/host.jpg\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{iphost}}/auth/login-for-social",
+									"host": [
+										"{{iphost}}"
+									],
+									"path": [
+										"auth",
+										"login-for-social"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Apple Login As USER",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"email\": \"newuser@icloud.com\",\r\n  \"name\": \"New Apple User\",\r\n  \"type\": \"APPLE\",\r\n  \"appId\": \"apple_id_123\",\r\n  \"role\": \"USER\",\r\n  \"image\": \"https://example.com/profile.jpg\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{iphost}}/auth/login-for-social",
+									"host": [
+										"{{iphost}}"
+									],
+									"path": [
+										"auth",
+										"login-for-social"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Apple Login as HOST",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n  \"email\": \"host@icloud.com\",\r\n  \"name\": \"Host Apple User\",\r\n  \"type\": \"APPLE\",\r\n  \"appId\": \"apple_id_456\",\r\n  \"role\": \"HOST\",\r\n  \"image\": \"https://example.com/host.jpg\"\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{iphost}}/auth/login-for-social",
+									"host": [
+										"{{iphost}}"
+									],
+									"path": [
+										"auth",
+										"login-for-social"
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "# Social Login API Testing Guide\n\n## Base URL\n\n```\nhttp://localhost:5000/api/v1\n\n ```\n\n## Endpoint\n\nPOST `/auth/login/social`\n\n## Testing Google Login\n\n### Request Headers\n\n```\nContent-Type: application/json\n\n ```\n\n### Google Login Request Body\n\n``` json\n{\n  \"email\": \"user@gmail.com\",\n  \"name\": \"Google User\",\n  \"type\": \"GOOGLE\",\n  \"fcmToken\": \"firebase_cloud_messaging_token_here\",\n  \"role\": \"USER\",\n  \"image\": \"https://example.com/profile.jpg\"\n}\n\n ```\n\n### Test Cases for Google Login\n\n1. {\"email\": \"newuser@gmail.com\",\"name\": \"New Google User\",\"type\": \"GOOGLE\",\"fcmToken\": \"fcm_token_123\",\"role\": \"USER\",\"image\": \"https://example.com/profile.jpg\"}\n    \n2. {\"email\": \"host@gmail.com\",\"name\": \"Host Google User\",\"type\": \"GOOGLE\",\"fcmToken\": \"fcm_token_456\",\"role\": \"HOST\",\"image\": \"https://example.com/host.jpg\"}\n    \n3. {\"email\": \"fail@gmail.com\",\"name\": \"Fail Test\",\"type\": \"GOOGLE\",\"role\": \"USER\"}\n    \n\n## Testing Apple Login\n\n### Apple Login Request Body\n\n``` json\n{\n  \"email\": \"user@icloud.com\",\n  \"name\": \"Apple User\",\n  \"type\": \"APPLE\",\n  \"appId\": \"apple_unique_id_here\",\n  \"role\": \"USER\",\n  \"image\": \"https://example.com/profile.jpg\"\n}\n\n ```\n\n### Test Cases for Apple Login\n\n1. {\"email\": \"newuser@icloud.com\",\"name\": \"New Apple User\",\"type\": \"APPLE\",\"appId\": \"apple_id_123\",\"role\": \"USER\",\"image\": \"https://example.com/profile.jpg\"}\n    \n2. {\"email\": \"host@icloud.com\",\"name\": \"Host Apple User\",\"type\": \"APPLE\",\"appId\": \"apple_id_456\",\"role\": \"HOST\",\"image\": \"https://example.com/host.jpg\"}\n    \n3. {\"email\": \"fail@icloud.com\",\"name\": \"Fail Test\",\"type\": \"APPLE\",\"role\": \"USER\"}\n    \n\n## Expected Responses\n\n### Success Response (200 OK)\n\n``` json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"User logged in successfully\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1...\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1...\",\n    \"user\": {\n      \"id\": \"507f1f77bcf86cd799439011\",\n      \"name\": \"Test User\",\n      \"email\": \"test@example.com\",\n      \"role\": \"USER\",\n      \"image\": \"https://example.com/profile.jpg\",\n      \"verified\": true,\n      \"status\": \"active\",\n      \"loginType\": \"GOOGLE\" // or \"APPLE\"\n    }\n  }\n}\n\n ```\n\n### Error Responses\n\n1. {\"success\": false,\"statusCode\": 400,\"message\": \"FCM token is required for Google login\",\"errorMessages\": \\[ { \"path\": \"fcmToken\", \"message\": \"FCM token is required for Google login\" }\\]}\n    \n\n## Postman Environment Setup\n\nCreate a new environment with these variables:\n\n```\nBASE_URL: http://localhost:5000/api/v1\nACCESS_TOKEN: <empty>\nREFRESH_TOKEN: <empty>\n\n ```\n\n## Postman Test Script\n\n``` javascript\n// Add this to the Tests tab\nconst response = pm.response.json();\nif (response.data && response.data.accessToken) {\n    pm.environment.set('ACCESS_TOKEN', response.data.accessToken);\n    pm.environment.set('REFRESH_TOKEN', response.data.refreshToken);\n}\n// Add basic validation\npm.test(\"Status code is 200\", function () {\n    pm.response.to.have.status(200);\n});\npm.test(\"Response has required fields\", function () {\n    pm.expect(response.data).to.have.property('accessToken');\n    pm.expect(response.data).to.have.property('refreshToken');\n    pm.expect(response.data).to.have.property('user');\n});\n\n ```"
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3YTU4MTY2MmRkMTI0MDE4NmUyZDhmMiIsInJvbGUiOiJVU0VSIiwiZW1haWwiOiJsb2NhbHVzZXIxQGdtYWlsLmNvbSIsIm5hbWUiOiJMb2NhbCBVc2VyIDEiLCJpYXQiOjE3Mzg5MjUzNzcsImV4cCI6MTczOTAxMTc3N30.PlpoWX1HB--MGmyTngey928iK84jeFhktcGvqwgeKDA",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"nrbnayon@gmail.com\",\r\n    \"password\": \"12345678\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{iphost}}/auth/login",
+							"host": [
+								"{{iphost}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Register",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "Nayon II",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "nrb@gmail.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "12345678",
+									"type": "text",
+									"disabled": true
+								},
+								{
+									"key": "image",
+									"type": "file",
+									"src": "/C:/Users/nrbna/Desktop/b2.png"
+								},
+								{
+									"key": "role",
+									"value": "USER",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{iphost}}/user/create-user",
+							"host": [
+								"{{iphost}}"
+							],
+							"path": [
+								"user",
+								"create-user"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email/OTP",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"host2@gmail.com\",\r\n    \"oneTimeCode\": \"328259\"\r\n}\r\n"
+						},
+						"url": {
+							"raw": "{{iphost}}/auth/verify-email",
+							"host": [
+								"{{iphost}}"
+							],
+							"path": [
+								"auth",
+								"verify-email"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Set Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OWI2MGM0ODk1NWYxMWFlZTRmMTQzOSIsInJvbGUiOiJIT1NUIiwiZW1haWwiOiJucmJuYXlvbmlpM0BnbWFpbC5jb20iLCJuYW1lIjoiTmV3IFZuZG9yIFVwZGF0ZSIsImlhdCI6MTczODMxMzM5MywiZXhwIjoxNzM4Mzk5NzkzfQ.8t1ooiZzSrxurTfnck30j_74H3ps7UDi4J4z6lIXig8",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"host2@gmail.com\",\r\n    \"password\": \"12345678\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{iphost}}/user/set-password",
+							"host": [
+								"{{iphost}}"
+							],
+							"path": [
+								"user",
+								"set-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Resend OTP",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"authupdate@gmail.com\"\r\n}"
+						},
+						"url": {
+							"raw": "{{iphost}}/auth/resend-otp",
+							"host": [
+								"{{iphost}}"
+							],
+							"path": [
+								"auth",
+								"resend-otp"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forget Password",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"nrbnayonii@gmail.com\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/forgot-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New AccessToken",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"nrbnayonii@gmail.com\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/forgot-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "New AccessToken Copy",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"nrbnayonii@gmail.com\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/forgot-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"forgot-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "97bb425f243893f594ddb5a9a6afdc3f0a4ccc855067f4c5784bb9e873fd1fa7",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"newPassword\": \"123456789\",\r\n    \"confirmPassword\":\"123456789\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/reset-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"reset-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Password Change",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OTg4ZGQyY2JmY2YxZTM0NGEzYTIxYyIsInJvbGUiOiJBRE1JTiIsImVtYWlsIjoibnJibmF5b25AZ21haWwuY29tIiwibmFtZSI6Ik5heW9uIiwiaWF0IjoxNzM4MTI0ODQ1LCJleHAiOjE3MzgyMTEyNDV9.qKZRtDlfJfj3FuZP2HuNCKdSj7j2Y2TKzI-qWnZCOVU",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \r\n    \"currentPassword\":\"12345678\",\r\n    \"newPassword\": \"123456789\",\r\n    \"confirmPassword\":\"123456789\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/change-password",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"change-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Account",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {}
+					},
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OTlhNjE2ZjU3M2EwOWEzNzMxNWYwYSIsInJvbGUiOiJVU0VSIiwiZW1haWwiOiJucmJuYXlvbmlpQGdtYWlsLmNvbSIsIm5hbWUiOiJOYXlvbiIsImlhdCI6MTczODEyNDk1NSwiZXhwIjoxNzM4MjExMzU1fQ.-GLFKPlg7MTGMqEngpvzubMxgHNP8Tsa12kXn4hxSvs",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \r\n    \"currentPassword\":\"12345678\",\r\n    \"newPassword\": \"123456789\",\r\n    \"confirmPassword\":\"123456789\"\r\n}"
+						},
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/delete-account",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"delete-account"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3OTg4ZGQyY2JmY2YxZTM0NGEzYTIxYyIsInJvbGUiOiJBRE1JTiIsImVtYWlsIjoibnJibmF5b25AZ21haWwuY29tIiwibmFtZSI6Ik5heW9uIiwiaWF0IjoxNzM4MDU4Mzg3LCJleHAiOjE3MzgxNDQ3ODd9.11rLrV5687ybeOzpBQ0bl8JJWJ4I4cEHm_r_OyhvAcs",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:4000/api/v1/auth/logout",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "4000",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "# API Documentation\n\n## Base Information\n\n- Base URL: `localhost:4000/api/v1`\n    \n- Content-Type: `application/json` (unless specified otherwise)\n    \n\n## Authentication\n\n### 1\\. User Registration\n\n**Endpoint:** `POST /user/create-user`  \n**Content-Type:** `multipart/form-data`\n\n#### Required Fields\n\n- name (string): User's full name\n    \n- email (string): User's email address\n    \n- password (string): User's password optional\n    \n\n#### Optional Fields\n\n- role (string): USER | ADMIN | HOST (defaults to USER)\n    \n- phone (string): Contact number\n    \n- image (file): Profile image\n    \n- postCode (string): Postal code\n    \n- gender (string): male | female | both\n    \n- dateOfBirth (string): ISO 8601 format\n    \n- address (object):\n    \n    - locationName (string)\n        \n    - latitude (number): -90 to 90\n        \n    - longitude (number): -180 to 180\n        \n\n#### Sample Request\n\n``` json\n{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\", // can be optional this time\n  \"phone\": \"+1234567890\",\n  \"postCode\": \"12345\",\n  \"gender\": \"male\",\n  \"dateOfBirth\": \"1990-01-01\",\n  \"address\": {\n    \"locationName\": \"Downtown\",\n    \"latitude\": 40.7128,\n    \"longitude\": -74.0060\n  }\n}\n\n ```\n\n#### Success Response (200 OK)\n\n``` json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Please check your email to verify your account. We have sent you an OTP to complete the registration process.\",\n  \"data\": \"john.doe@example.com\"\n}\n\n ```\n\n### 2\\. Email Verification\n\n**Endpoint:** `POST /auth/verify-email`\n\n#### Request Body\n\n``` json\n{\n  \"email\": \"user@example.com\",\n  \"oneTimeCode\": \"123456\"\n}\n\n ```\n\n#### Success Response (200 OK)\n\n``` json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Your email has been successfully verified. Your account is now fully activated.\",\n  \"data\": null\n}\n\n ```\n\n### 3\\. Set Password\n\n**Endpoint:** `POST /user/set-password`  \n**Description:** Set password after email verification  \n**Content-Type:** `application/json`\n\n#### Request Body\n\n``` json\n{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"yourSecurePassword\"\n}\n\n ```\n\n#### Success Response (200 OK)\n\n``` json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"Password set successfully\",\n  \"data\": []\n}\n\n ```\n\n#### Error Cases\n\n``` json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"message\": \"You provided the wrong OTP.\"\n}\n\n ```\n\n### 4\\. User Login\n\n**Endpoint:** `POST /auth/login`\n\n#### Request Body\n\n``` json\n{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}\n\n ```\n\n#### Success Response (200 OK)\n\n``` json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"User login successfully\",\n  \"data\": {\n    \"accessToken\": \"jwt_access_token\",\n    \"refreshToken\": \"jwt_refresh_token\"\n  }\n}\n\n ```\n\n## Password Management\n\n### 1\\. Forgot Password\n\n**Endpoint:** `POST /auth/forgot-password`\n\n#### Request Body\n\n``` json\n{\n  \"email\": \"user@example.com\"\n}\n\n ```\n\n### 2\\. Reset Password\n\n**Endpoint:** `POST /auth/reset-password`  \n**Headers:** `Authorization: reset_token`\n\n#### Request Body\n\n``` json\n{\n  \"newPassword\": \"newPassword123\",\n  \"confirmPassword\": \"newPassword123\"\n}\n\n ```\n\n### 3\\. Change Password\n\n**Endpoint:** `POST /auth/change-password`  \n**Authentication:** Required\n\n#### Request Body\n\n``` json\n{\n  \"currentPassword\": \"currentPass123\",\n  \"newPassword\": \"newPass123\",\n  \"confirmPassword\": \"newPass123\"\n}\n\n ```\n\n## User Management\n\n### 1\\. Get User Profile\n\n**Endpoint:** `GET /user/profile`  \n**Authentication:** Required  \n**Headers:** `Authorization: Bearer {token}`\n\n### 2\\. Update Profile\n\n**Endpoint:** `PATCH /user/update-profile`  \n**Authentication:** Required  \n**Content-Type:** `multipart/form-data`\n\n#### Optional Fields\n\n- name (string)\n    \n- phone (string)\n    \n- image (file)\n    \n- postCode (string)\n    \n- country (string)\n    \n- dateOfBirth (string): ISO 8601 format\n    \n- address (object):\n    \n    - locationName (string)\n        \n    - latitude (number)\n        \n    - longitude (number)\n        \n\n### 3\\. Get All Users\n\n**Endpoint:** `GET /user/get-all-users`  \n**Authentication:** Required\n\n#### Query Parameters\n\n- searchTerm (string): Search by name, email, or phone\n    \n- page (number, default: 1)\n    \n- limit (number, default: 10)\n    \n- sortBy (string, default: 'createdAt')\n    \n- order (string, default: 'desc')\n    \n- status (string)\n    \n- role (string)\n    \n\n## Token Management\n\n### 1\\. Refresh Token\n\n**Endpoint:** `POST /auth/refresh-token`\n\n#### Request Body\n\n``` json\n{\n  \"token\": \"refresh_token\"\n}\nOn the frontend, you'll need to handle the new access token:\ntypescriptCopy// Example using axios\naxios.interceptors.response.use((response) => {\n  const newAccessToken = response.data?.data?.newAccessToken;\n  if (newAccessToken) {\n    // Update stored token\n    localStorage.setItem('accessToken', newAccessToken);\n    // Update axios default headers\n    axios.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;\n  }\n  return response;\n});\n\n\n ```\n\n### 2\\. Logout\n\n**Endpoint:** `POST /auth/logout`  \n**Authentication:** Required\n\n## Testing Guide\n\n### 1\\. Environment Setup\n\n``` json\n{\n  \"base_url\": \"localhost:4000/api/v1\",\n  \"access_token\": \"\",\n  \"refresh_token\": \"\",\n  \"reset_token\": \"\",\n  \"test_email\": \"test@example.com\",\n  \"test_password\": \"password123\"\n}\n\n ```\n\n### 2\\. Test Cases Categories\n\n1. Authentication Flow Testing\n    \n2. Password Management Testing\n    \n3. Email Verification Testing\n    \n4. Token Testing\n    \n5. Role-Based Access Testing\n    \n6. Input Validation Testing\n    \n7. Error Handling Testing\n    \n8. Security Testing\n    \n9. Performance Testing\n    \n\n### 3\\. Common Error Responses\n\n- 400 Bad Request: Invalid input data\n    \n- 401 Unauthorized: Invalid or expired token\n    \n- 403 Forbidden: Insufficient permissions\n    \n- 404 Not Found: Resource not found\n    \n- 500 Internal Server Error: Server error\n    \n\n### 4\\. Sample Postman Test Script\n\n``` javascript\n// Login Test\npm.test(\"Login Successful\", function () {\n    pm.response.to.have.status(200);\n    pm.expect(pm.response.json().data).to.have.property('accessToken');\n    pm.expect(pm.response.json().data).to.have.property('refreshToken');\n});\n// Token Validation\npm.test(\"Valid JWT Format\", function () {\n    const response = pm.response.json();\n    const token = response.data.accessToken;\n    pm.expect(token).to.match(/^[A-Za-z0-9-_]*\\.[A-Za-z0-9-_]*\\.[A-Za-z0-9-_]*$/);\n});\n\n ```"
+		},
+		{
+			"name": "Chat",
 			"item": [],
 			"description": "StartFragment\n\nIt looks like you have two main issues in your TypeScript project:\n\n1. **Undefined function error (****`processUploadedFile`****) in** **`messages.service.ts`**\n    \n2. **Type mismatch (****`string[]`** **vs.** **`ObjectId[]`****) in** **`ICallSession.participants`**\n    \n\n---\n\n### **Fix 1: Undefined Function (****`processUploadedFile`****)**\n\nError:\n\n> &lt;p &gt;Cannot find name &amp;#x27;processUploadedFile&amp;#x27;. Did you mean &amp;#x27;processedFile&amp;#x27;?&lt;/p&gt; \n  \n\n**Problem:**  \n  \nThe function `processUploadedFile` is being used in `messages.service.ts`, but it is not defined anywhere.\n\n**Solution:**  \n  \nDefine the function `processUploadedFile` in a helper file or within `messages.service.ts`.\n\nExample Implementation:\n\n``` typescript\nconst processUploadedFile = async (file: Express.Multer.File) => {\n  return {\n    url: `/uploads/${file.filename}`, // Assuming file uploads are stored in '/uploads'\n    metadata: {\n      mimeType: file.mimetype,\n      size: file.size,\n    },\n  };\n};\n\n ```\n\n**Fix the usage:**  \nReplace:\n\n``` typescript\nconst processedFile = await processUploadedFile(file);\n\n ```\n\nwith:\n\n``` typescript\nconst processedFile = await processUploadedFile(file);\n\n ```\n\nand ensure the function is either imported from a helper module or defined in `messages.service.ts`.\n\n---\n\n### **Fix 2: Type Mismatch (****`string[]`** **vs.** **`ObjectId[]`****)**\n\nError:\n\n> &lt;p &gt;Type &amp;#x27;string\\[\\]&amp;#x27; is not assignable to type &amp;#x27;ObjectId\\[\\]&amp;#x27;. Type &amp;#x27;string&amp;#x27; is not assignable to type &amp;#x27;ObjectId&amp;#x27;.&lt;/p&gt; \n  \n\n**Problem:**  \n  \nIn `ICallSession` inside `socketHelper.ts`, the property `participants` is declared as:\n\n``` typescript\nparticipants: Types.ObjectId[];\n\n ```\n\nHowever, your service is passing an array of `string[]` instead of `Types.ObjectId[]`.\n\n**Solution:**  \n  \nConvert the string array to `ObjectId[]` before saving to MongoDB.\n\nModify this part:\n\n``` typescript\nconst callSession: ICallSession = {\n  _id: new Types.ObjectId(),\n  participants,\n  chat: new Types.ObjectId(chatId),\n  initiator: new Types.ObjectId(userId),\n  startTime: new Date(),\n  callType,\n  status: 'ringing',\n};\n\n ```\n\n**Fix:** Convert `participants` to `ObjectId[]`:\n\n``` typescript\nconst callSession: ICallSession = {\n  _id: new Types.ObjectId(),\n  participants: participants.map(id => new Types.ObjectId(id)), // Convert string[] to ObjectId[]\n  chat: new Types.ObjectId(chatId),\n  initiator: new Types.ObjectId(userId),\n  startTime: new Date(),\n  callType,\n  status: 'ringing',\n};\n\n ```\n\n---\n\n### **API & Socket Testing Documentation using Postman**\n\n#### **1\\. Setting Up Postman for API Testing**\n\nBefore testing, make sure your server is running:\n\n``` bash\nnpm run dev\n\n ```\n\nor\n\n``` bash\nnode index.js\n\n ```\n\n#### **2\\. API Testing**\n\n- **Base URL:** `http://localhost:5000/api/v1`\n    \n\n##### **User Authentication APIs**\n\n| Method | Endpoint | Description | Required Fields |\n| --- | --- | --- | --- |\n| `POST` | `/auth/register` | Register a new user | `name, email, password` |\n| `POST` | `/auth/login` | User login | `email, password` |\n\n##### **Chat APIs**\n\n| Method | Endpoint | Description | Required Fields |\n| --- | --- | --- | --- |\n| `POST` | `/chat` | Start a new chat | `userId` |\n| `GET` | `/chat` | Get all chats for logged-in user | \\- |\n| `POST` | `/chat/group` | Create a group chat | `name, users[]` |\n| `PATCH` | `/chat/rename` | Rename a group chat | `chatId, chatName` |\n| `PATCH` | `/chat/groupremove` | Remove user from group | `chatId, userId` |\n| `PATCH` | `/chat/groupadd` | Add user to group | `chatId, userId` |\n\n##### **Message APIs**\n\n| Method | Endpoint | Description | Required Fields |\n| --- | --- | --- | --- |\n| `POST` | `/messages` | Send a new message | `content, chatId` |\n| `GET` | `/messages/:chatId` | Get all messages of a chat | \\- |\n| `PATCH` | `/messages/:messageId/edit` | Edit a message | `content` |\n| `DELETE` | `/messages/:messageId` | Delete a message | \\- |\n| `PATCH` | `/messages/:messageId/read` | Mark message as read | \\- |\n| `PATCH` | `/messages/:messageId/pin` | Pin/unpin a message | \\- |\n| `GET` | `/messages/search?searchTerm=word` | Search messages | `searchTerm` |\n\n---\n\n#### **3\\. WebSocket Testing**\n\nYou can test WebSocket connections using **Postman** or **Socket.IO Client**.\n\n- **WebSocket URL:** `ws://localhost:5000`\n    \n- **Events & Payloads**\n    \n\n##### **Connecting a User**\n\n``` json\n{\n  \"event\": \"user-online\",\n  \"data\": \"userId\"\n}\n\n ```\n\n##### **Sending a Message**\n\n``` json\n{\n  \"event\": \"new-message\",\n  \"data\": {\n    \"content\": \"Hello!\",\n    \"chatId\": \"62dfsd23\"\n  }\n}\n\n ```\n\n##### **Typing Indicator**\n\n``` json\n{\n  \"event\": \"typing-start\",\n  \"data\": {\n    \"chatId\": \"62dfsd23\",\n    \"userId\": \"629sdj22\"\n  }\n}\n\n ```\n\n##### **Call Events**\n\n``` json\n{\n  \"event\": \"call-initiate\",\n  \"data\": {\n    \"chatId\": \"6298sd88\",\n    \"callType\": \"video\",\n    \"participants\": [\"user1Id\", \"user2Id\"]\n  }\n}\n\n ```\n\n---\n\n### **Final Steps**\n\n1. Ensure all files are correctly **imported and exported** in `index.ts` or `app.ts`.\n    \n2. npm start\n    \n3. Use Postman to **test API endpoints**.\n    \n4. Use Postman WebSocket or **Socket.IO client** to test real-time features.\n    \n5. Fix **any missing dependencies or import issues**.\n    \n\nNow, everything should be working properly! 🚀\n\nEndFragment"
 		}
