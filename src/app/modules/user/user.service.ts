@@ -34,7 +34,7 @@ const createUserFromDb = async (payload: IUser) => {
 
     await session.withTransaction(async () => {
       if (!payload.role) payload.role = USER_ROLES.USER;
-      if (!payload.password) payload.password = '12345678';
+      if (!payload.password) payload.password = config.admin.password;
 
       result = await User.create([payload], { session });
       result = result[0];
@@ -164,9 +164,9 @@ const setPassword = async (payload: SetPasswordPayload) => {
       // Create notifications for each admin
       const notificationPromises = adminUsers.map(admin => {
         const notificationData: Partial<INotification> = {
-          message: `New ${user.role.toLowerCase()}, Name: ${user.name}, Email: (${
-            user.email
-          }) has completed registration.`,
+          message: `New ${user.role.toLowerCase()}, Name: ${
+            user.name
+          }, Email: (${user.email}) has completed registration.`,
           type: 'ADMIN',
           receiver: admin._id,
           metadata: {
@@ -316,7 +316,6 @@ const getAllUsers = async (query: Record<string, unknown>) => {
   };
 };
 
-
 const getUserProfileFromDB = async (
   user: JwtPayload
 ): Promise<Partial<IUser>> => {
@@ -428,8 +427,6 @@ const updateProfileToDB = async (
   return updateDoc;
 };
 
-
-
 const getSingleUser = async (id: string): Promise<IUser | null> => {
   const result = await User.findById(id);
   return result;
@@ -440,7 +437,7 @@ const getOnlineUsers = async () => {
     const onlineUsers = await User.find({
       onlineStatus: true,
       lastActiveAt: {
-        $gte: new Date(Date.now() - 5 * 60 * 1000), 
+        $gte: new Date(Date.now() - 5 * 60 * 1000),
       },
     }).select('name email profileImage');
 
