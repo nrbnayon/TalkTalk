@@ -4,6 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import router from './routes';
 import { Morgan } from './shared/morgen';
+import responseInterceptor from './app/middlewares/responseInterceptor';
 // import { PaymentController } from './app/modules/payment/payment.controller';
 
 const app = express();
@@ -28,6 +29,8 @@ app.use(
     credentials: true,
   })
 );
+
+app.use(responseInterceptor);
 
 // Webhook route (before body parser)
 // app.post(
