@@ -4,7 +4,7 @@ import { StatusCodes } from 'http-status-codes';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import router from './routes';
 import { Morgan } from './shared/morgen';
-import { PaymentController } from './app/modules/payment/payment.controller';
+// import { PaymentController } from './app/modules/payment/payment.controller';
 
 const app = express();
 
@@ -30,11 +30,11 @@ app.use(
 );
 
 // Webhook route (before body parser)
-app.post(
-  '/webhook',
-  express.raw({ type: 'application/json' }),
-  PaymentController.stripeWebhookController
-);
+// app.post(
+//   '/webhook',
+//   express.raw({ type: 'application/json' }),
+//   PaymentController.stripeWebhookController
+// );
 
 // Body parser with increased limits
 app.use(express.json({ limit: '10mb' }));
