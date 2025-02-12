@@ -1,4 +1,3 @@
-
 import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject, ZodError, z } from 'zod';
 
@@ -30,7 +29,6 @@ const validateRequest = (schema: ZodSchema) => {
 
 export default validateRequest;
 
-// import { NextFunction, Request, Response } from 'express';
 // import { AnyZodObject } from 'zod';
 
 // const validateRequest =
