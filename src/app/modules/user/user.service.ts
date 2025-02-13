@@ -16,7 +16,6 @@ import unlinkFile from '../../../shared/unlinkFile';
 import { logger } from '../../../shared/logger';
 import config from '../../../config';
 import { jwtHelper } from '../../../helpers/jwtHelper';
-import { NotificationService } from '../notification/notification.service';
 import { INotification } from '../notification/notification.interface';
 
 const createUserFromDb = async (payload: IUser) => {
