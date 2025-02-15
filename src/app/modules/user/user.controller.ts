@@ -4,12 +4,14 @@ import { StatusCodes } from 'http-status-codes';
 import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { UserService } from './user.service';
+import { logger } from '../../../shared/logger';
 
 const createUser = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const value = { ...req.body };
       const result = await UserService.createUserIntoDB(value);
+
       sendResponse(res, {
         success: true,
         statusCode: StatusCodes.OK,
@@ -28,7 +30,7 @@ const createUser = catchAsync(
 );
 
 const setPassword = catchAsync(async (req: Request, res: Response) => {
-  const result = await UserService.setPassword(req.body);
+  const result = await UserService.setUserNewPassword(req.body);
 
   sendResponse(res, {
     success: true,
@@ -54,10 +56,7 @@ const updateProfile = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const user = req.user;
     const updateData = req.body;
-
     const result = await UserService.updateProfileToDB(user, updateData);
-
-    console.log('User updated', result);
 
     sendResponse(res, {
       success: true,
@@ -81,18 +80,16 @@ const getAllUser = catchAsync(async (req: Request, res: Response) => {
 
 const getSingleUser = catchAsync(async (req: Request, res: Response) => {
   const result = await UserService.getSingleUser(req.params.id);
+
   sendResponse(res, {
     success: true,
     statusCode: StatusCodes.OK,
-    message: 'User retrived successfully',
+    message: 'User retrieved successfully',
     data: result,
   });
 });
 
 const getOnlineUsers = catchAsync(async (req: Request, res: Response) => {
-  // Replace console.log with a logging library in production
-  console.log('Controller: Retrieving online users');
-
   const onlineUsers = await UserService.getOnlineUsers();
 
   sendResponse(res, {
@@ -104,10 +101,7 @@ const getOnlineUsers = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateOnlineStatus = catchAsync(async (req: Request, res: Response) => {
-  // console.log('first update', req.user);
-  // console.log('user updated line 112', req.body);
   const { userId, status } = req.body;
-  // Input validation
   if (!userId || typeof status !== 'boolean') {
     return sendResponse(res, {
       success: false,
@@ -116,8 +110,7 @@ const updateOnlineStatus = catchAsync(async (req: Request, res: Response) => {
     });
   }
 
-  // Replace console.log with a logging library in production
-  console.log(`Controller: Updating user ${userId} online status to ${status}`);
+  logger.info(`Controller: Updating user ${userId} online status to ${status}`);
 
   const updatedUser = await UserService.updateUserOnlineStatus(userId, status);
 

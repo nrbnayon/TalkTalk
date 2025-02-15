@@ -111,7 +111,7 @@ const createUserIntoDB = async (payload: IUser) => {
   }
 };
 
-const setPassword = async (payload: SetPasswordPayload) => {
+const setUserNewPassword = async (payload: SetPasswordPayload) => {
   const { email, password, address } = payload;
 
   const user = await User.findOne({ email });
@@ -487,7 +487,7 @@ const updateUserOnlineStatus = async (userId: string, isOnline: boolean) => {
 
 export const UserService = {
   createUserIntoDB,
-  setPassword,
+  setUserNewPassword,
   getUserProfileFromDB,
   updateProfileToDB,
   getAllUsers,
