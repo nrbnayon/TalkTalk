@@ -18,7 +18,7 @@ import config from '../../../config';
 import { jwtHelper } from '../../../helpers/jwtHelper';
 import { INotification } from '../notification/notification.interface';
 
-const createUserFromDb = async (payload: IUser) => {
+const createUserIntoDB = async (payload: IUser) => {
   const existingUser = await User.findOne({ email: payload.email });
   if (existingUser) {
     throw new ApiError(
@@ -486,7 +486,7 @@ const updateUserOnlineStatus = async (userId: string, isOnline: boolean) => {
 };
 
 export const UserService = {
-  createUserFromDb,
+  createUserIntoDB,
   setPassword,
   getUserProfileFromDB,
   updateProfileToDB,
