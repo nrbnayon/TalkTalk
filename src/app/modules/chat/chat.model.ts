@@ -28,10 +28,10 @@ const chatSchema = new Schema<IChat>(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
-    isPinned: {
-      type: Boolean,
-      default: false,
-    },
+    // isPinned: {
+    //   type: Boolean,
+    //   default: false,
+    // },
 
     pinnedBy: [
       {

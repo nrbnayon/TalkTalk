@@ -10,7 +10,7 @@ export interface IChat {
   users: Types.ObjectId[] | IUser[];
   latestMessage?: Types.ObjectId | IMessage;
   groupAdmin?: Types.ObjectId | IUser;
-  isPinned: boolean;
+  // isPinned?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   deletedBy: Types.ObjectId[] | IUser[];
