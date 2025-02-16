@@ -11,7 +11,7 @@ const apiRoutes = [
   { path: '/user', route: UserRoutes },
   { path: '/auth', route: AuthRoutes },
   { path: '/device', route: UserLogRoutes },
-  { path: '/message', route: MessageRoutes },
+  { path: '/messages', route: MessageRoutes },
   { path: '/chat', route: ChatRoutes },
 ];
 
