@@ -292,11 +292,23 @@ const updateChatPin = async (
   }
 
   // Toggle the isPinned field
-  const updatedChat = await Chat.findByIdAndUpdate(
-    chatId,
-    { isPinned: !chat.isPinned },
-    { new: true }
-  )
+  // const updatedChat = await Chat.findByIdAndUpdate(
+  //   chatId,
+  //   { isPinned: !chat.isPinned },
+  //   { new: true }
+  // )
+  // Check if user is already blocked
+  const isPinned =
+    chat.pinnedBy && chat.pinnedBy.some(id => id.toString() === userId);
+
+  // Update operation - add or remove from blockedBy array
+  const updateOperation = isPinned
+    ? { $pull: { pinnedBy: userId } }
+    : { $addToSet: { pinnedBy: userId } };
+
+  const updatedChat = await Chat.findByIdAndUpdate(chatId, updateOperation, {
+    new: true,
+  })
     .populate({
       path: 'users',
       select: 'name email image onlineStatus lastActiveAt status verified',

@@ -32,6 +32,18 @@ const chatSchema = new Schema<IChat>(
       type: Boolean,
       default: false,
     },
+
+    pinnedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      {
+        type: Boolean,
+        default: false,
+      },
+    ],
+
     deletedBy: [
       {
         type: Schema.Types.ObjectId,
