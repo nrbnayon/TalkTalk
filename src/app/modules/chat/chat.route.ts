@@ -10,7 +10,7 @@ import { ChatValidation } from './chat.validation';
 const router = express.Router();
 
 router.post(
-  '/',
+  '/new',
   auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
   validateRequest(ChatValidation.accessChatZodSchema),
   ChatController.accessChat

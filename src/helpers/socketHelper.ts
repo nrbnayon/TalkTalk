@@ -3,7 +3,10 @@ import colors from 'colors';
 import { Server, Socket } from 'socket.io';
 import { logger } from '../shared/logger';
 import { UserService } from '../app/modules/user/user.service';
-import { ICallSession, IMessage } from '../app/modules/messages/messages.interface';
+import {
+  ICallSession,
+  IMessage,
+} from '../app/modules/messages/messages.interface';
 import { Types } from 'mongoose';
 
 interface ICallSignal {
@@ -146,7 +149,7 @@ class SocketHelper {
         async (data: {
           chatId: string;
           callType: 'audio' | 'video';
-          participants: string[];
+          participants: Types.ObjectId[];
         }) => {
           const { chatId, callType, participants } = data;
           const userId = this.connectedSockets.get(socket.id);
@@ -167,8 +170,10 @@ class SocketHelper {
 
           // Notify all participants
           participants.forEach(participantId => {
-            if (participantId !== userId) {
-              const participantSockets = this.getSocketsByUserId(participantId);
+            if (participantId.toString() !== userId) {
+              const participantSockets = this.getSocketsByUserId(
+                participantId.toString()
+              );
               participantSockets.forEach(socketId => {
                 io.to(socketId).emit('call-incoming', callSession);
               });
