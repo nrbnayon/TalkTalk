@@ -28,6 +28,22 @@ const chatSchema = new Schema<IChat>(
       type: Schema.Types.ObjectId,
       ref: 'User',
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+    deletedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    blockedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,

@@ -10,8 +10,11 @@ export interface IChat {
   users: Types.ObjectId[] | IUser[];
   latestMessage?: Types.ObjectId | IMessage;
   groupAdmin?: Types.ObjectId | IUser;
+  isPinned: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+  deletedBy: Types.ObjectId[] | IUser[];
+  blockedBy: Types.ObjectId[] | IUser[];
 }
 
 export interface IChatFilters {

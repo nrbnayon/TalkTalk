@@ -50,4 +50,25 @@ router.patch(
   ChatController.addToGroup
 );
 
+router.patch(
+  '/:chatId/pin',
+  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
+  validateRequest(ChatValidation.chatActionZodSchema),
+  ChatController.updateChatPin
+);
+
+router.patch(
+  '/:chatId/delete',
+  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
+  validateRequest(ChatValidation.chatActionZodSchema),
+  ChatController.markChatAsDeleted
+);
+
+router.patch(
+  '/:chatId/block',
+  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
+  validateRequest(ChatValidation.chatActionZodSchema),
+  ChatController.blockUnblockUser
+);
+
 export const ChatRoutes = router;

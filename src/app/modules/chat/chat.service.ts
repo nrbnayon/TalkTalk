@@ -76,6 +76,7 @@ const accessChat = async (
 const getAllChats = async (userId: string): Promise<IChat[]> => {
   const chats = await Chat.find({
     users: { $elemMatch: { $eq: userId } },
+    deletedBy: { $ne: userId },
   })
     .populate({
       path: 'users',
@@ -281,6 +282,133 @@ const addToGroup = async (
   return updatedChat.toObject();
 };
 
+const updateChatPin = async (
+  chatId: string,
+  userId: string
+): Promise<IChat> => {
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Chat not found');
+  }
+
+  // Toggle the isPinned field
+  const updatedChat = await Chat.findByIdAndUpdate(
+    chatId,
+    { isPinned: !chat.isPinned },
+    { new: true }
+  )
+    .populate({
+      path: 'users',
+      select: 'name email image onlineStatus lastActiveAt status verified',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'groupAdmin',
+      select: 'name email image onlineStatus',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'latestMessage',
+      populate: {
+        path: 'sender',
+        select: 'name email image onlineStatus',
+      },
+    });
+
+  if (!updatedChat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Failed to update chat');
+  }
+
+  return updatedChat.toObject();
+};
+
+const markChatAsDeleted = async (
+  chatId: string,
+  userId: string
+): Promise<IChat> => {
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Chat not found');
+  }
+
+  // Add user to deletedBy array if not already there
+  const updatedChat = await Chat.findByIdAndUpdate(
+    chatId,
+    { $addToSet: { deletedBy: userId } },
+    { new: true }
+  )
+    .populate({
+      path: 'users',
+      select: 'name email image onlineStatus lastActiveAt status verified',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'groupAdmin',
+      select: 'name email image onlineStatus',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'latestMessage',
+      populate: {
+        path: 'sender',
+        select: 'name email image onlineStatus',
+      },
+    });
+
+  if (!updatedChat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Failed to mark chat as deleted');
+  }
+
+  return updatedChat.toObject();
+};
+
+const blockUnblockUser = async (
+  chatId: string,
+  userId: string
+): Promise<IChat> => {
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Chat not found');
+  }
+
+  // Check if user is already blocked
+  const isBlocked =
+    chat.blockedBy && chat.blockedBy.some(id => id.toString() === userId);
+
+  // Update operation - add or remove from blockedBy array
+  const updateOperation = isBlocked
+    ? { $pull: { blockedBy: userId } }
+    : { $addToSet: { blockedBy: userId } };
+
+  const updatedChat = await Chat.findByIdAndUpdate(chatId, updateOperation, {
+    new: true,
+  })
+    .populate({
+      path: 'users',
+      select: 'name email image onlineStatus lastActiveAt status verified',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'groupAdmin',
+      select: 'name email image onlineStatus',
+      match: { status: 'active' },
+    })
+    .populate({
+      path: 'latestMessage',
+      populate: {
+        path: 'sender',
+        select: 'name email image onlineStatus',
+      },
+    });
+
+  if (!updatedChat) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Failed to update block status');
+  }
+
+  return updatedChat.toObject();
+};
+
+// Add these to the export
 export const ChatService = {
   accessChat,
   getAllChats,
@@ -288,4 +416,7 @@ export const ChatService = {
   renameGroup,
   removeFromGroup,
   addToGroup,
+  updateChatPin,
+  markChatAsDeleted,
+  blockUnblockUser,
 };

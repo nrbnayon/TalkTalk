@@ -6,7 +6,7 @@ import sendResponse from '../../../shared/sendResponse';
 import { ChatService } from './chat.service';
 
 const accessChat = catchAsync(async (req: Request, res: Response) => {
-  console.log('Chat access Controller::', req.body.userId, req.user.id)
+  console.log('Chat access Controller::', req.body.userId, req.user.id);
   const result = await ChatService.accessChat(req.body.userId, req.user.id);
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -70,6 +70,39 @@ const addToGroup = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateChatPin = catchAsync(async (req: Request, res: Response) => {
+  const { chatId } = req.params;
+  const result = await ChatService.updateChatPin(chatId, req.user.id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Chat pin status updated successfully',
+    data: result,
+  });
+});
+
+const markChatAsDeleted = catchAsync(async (req: Request, res: Response) => {
+  const { chatId } = req.params;
+  const result = await ChatService.markChatAsDeleted(chatId, req.user.id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Chat marked as deleted successfully',
+    data: result,
+  });
+});
+
+const blockUnblockUser = catchAsync(async (req: Request, res: Response) => {
+  const { chatId } = req.params;
+  const result = await ChatService.blockUnblockUser(chatId, req.user.id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: 'Chat block status updated successfully',
+    data: result,
+  });
+});
+
 export const ChatController = {
   accessChat,
   getAllChats,
@@ -77,4 +110,7 @@ export const ChatController = {
   renameGroup,
   removeFromGroup,
   addToGroup,
+  updateChatPin,
+  markChatAsDeleted,
+  blockUnblockUser,
 };
