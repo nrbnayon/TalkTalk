@@ -7,9 +7,8 @@ import { MessageService } from './messages.service';
 import { IMessageFilters } from './messages.interface';
 
 const getAllMessages = catchAsync(async (req: Request, res: Response) => {
-  
   const { chatId } = req.params;
-  console.log('Chat access Controller::', chatId);
+  console.log('Message get Controller::', chatId);
   const result = await MessageService.getAllMessages(chatId);
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -21,7 +20,14 @@ const getAllMessages = catchAsync(async (req: Request, res: Response) => {
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const { content, chatId, replyToId } = req.body;
-  const result = await MessageService.sendMessage(req.user.id, content, chatId, replyToId);
+
+  console.log('Get all message Data', req.body);
+  const result = await MessageService.sendMessage(
+    req.user.id,
+    content,
+    chatId,
+    replyToId
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -33,7 +39,11 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 const editMessage = catchAsync(async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { content } = req.body;
-  const result = await MessageService.editMessage(messageId, req.user.id, content);
+  const result = await MessageService.editMessage(
+    messageId,
+    req.user.id,
+    content
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -86,16 +96,21 @@ const searchMessages = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getUnseenMessageCount = catchAsync(async (req: Request, res: Response) => {
-  const { chatId } = req.params;
-  const result = await MessageService.getUnseenMessageCount(chatId, req.user.id);
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: 'Unseen message count retrieved successfully',
-    data: result,
-  });
-});
+const getUnseenMessageCount = catchAsync(
+  async (req: Request, res: Response) => {
+    const { chatId } = req.params;
+    const result = await MessageService.getUnseenMessageCount(
+      chatId,
+      req.user.id
+    );
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: 'Unseen message count retrieved successfully',
+      data: result,
+    });
+  }
+);
 
 export const MessageController = {
   getAllMessages,
