@@ -4,11 +4,16 @@ import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
 import { Types } from 'mongoose';
 import { Message } from './messages.model';
-import { IMessage, IMessageAttachment, IMessageFilters, MessageType } from './messages.interface';
+import {
+  IMessage,
+  IMessageAttachment,
+  IMessageFilters,
+  MessageType,
+} from './messages.interface';
 
 const processUploadedFile = async (file: Express.Multer.File) => {
   return {
-    url: `/uploads/${file.filename}`, 
+    url: `/uploads/${file.filename}`,
     metadata: {
       mimeType: file.mimetype,
       size: file.size,
@@ -16,11 +21,10 @@ const processUploadedFile = async (file: Express.Multer.File) => {
   };
 };
 
-
 const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
   const messages = await Message.find({
     chat: chatId,
-    isDeleted: false,
+    // isDeleted: false, // for show deleted messages
   })
     .populate('sender', 'name email image')
     .populate('replyTo')

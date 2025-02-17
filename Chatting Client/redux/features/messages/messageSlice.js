@@ -1,32 +1,32 @@
 // // redux\features\messages\messageSlice.js
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 export const fetchMessages = createAsyncThunk(
-  "messages/fetchMessages",
+  'messages/fetchMessages',
   async (chatId, { rejectWithValue }) => {
     try {
-      console.log("[messageSlice] Fetching messages for chat:", chatId);
+      console.log('[messageSlice] Fetching messages for chat:', chatId);
       const response = await fetch(`/api/messages/${chatId}`);
       const data = await response.json();
 
-      console.log("[messageSlice] Fetch response:", data);
+      console.log('[messageSlice] Fetch response:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch messages");
+        throw new Error(data.error || 'Failed to fetch messages');
       }
       return { chatId, messages: data.data };
     } catch (error) {
-      console.error("[messageSlice] Error fetching messages:", error);
+      console.error('[messageSlice] Error fetching messages:', error);
       return rejectWithValue(error.message);
     }
   }
 );
 
 export const sendMessage = createAsyncThunk(
-  "messages/sendMessage",
+  'messages/sendMessage',
   async (formData, { rejectWithValue }) => {
     try {
-      console.log("[messageSlice] Sending message with FormData");
+      console.log('[messageSlice] Sending message with FormData');
 
       // Log FormData contents
       for (let [key, value] of formData.entries()) {
@@ -36,55 +36,112 @@ export const sendMessage = createAsyncThunk(
         );
       }
 
-      const response = await fetch("/api/messages", {
-        method: "POST",
+      const response = await fetch('/api/messages', {
+        method: 'POST',
         body: formData,
       });
 
       console.log(
-        "[messageSlice] Send message response status:",
+        '[messageSlice] Send message response status:',
         response.status
       );
       const data = await response.json();
-      console.log("[messageSlice] Send message response:", data);
+      console.log('[messageSlice] Send message response:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send message");
+        throw new Error(data.error || 'Failed to send message');
       }
 
       return data.data;
     } catch (error) {
-      console.error("[messageSlice] Error sending message:", error);
+      console.error('[messageSlice] Error sending message:', error);
       return rejectWithValue(error.message);
     }
   }
 );
 
 export const markMessageAsRead = createAsyncThunk(
-  "messages/markAsRead",
-  async ({ messageId, chatId }, { rejectWithValue }) => {
+  'messages/markAsRead',
+  async ({ messageId, chatId, userId }, { rejectWithValue }) => {
     try {
-      console.log("[messageSlice] Marking message as read:", messageId);
       const response = await fetch(`/api/messages/${messageId}/read`, {
-        method: "PATCH",
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to mark message as read");
+        throw new Error('Failed to mark message as read');
       }
 
       const data = await response.json();
-      console.log("[messageSlice] Mark as read response:", data);
       return { messageId, chatId, readData: data.data };
     } catch (error) {
-      console.error("[messageSlice] Error marking message as read:", error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const pinMessage = createAsyncThunk(
+  'messages/pinMessage',
+  async ({ messageId, chatId }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`/api/messages/${messageId}/pin`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isPinned: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to pin message');
+      }
+
+      const data = await response.json();
+      return {
+        messageId,
+        chatId,
+        pinnedData: {
+          ...data.data,
+          pinnedAt: new Date().toISOString(),
+        },
+      };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Async thunk for unpinning message
+export const unpinMessage = createAsyncThunk(
+  'messages/unpinMessage',
+  async ({ messageId, chatId }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`/api/messages/${messageId}/pin`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isPinned: false }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to unpin message');
+      }
+
+      const data = await response.json();
+      return { messageId, chatId, pinnedData: data.data };
+    } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
 const messageSlice = createSlice({
-  name: "messages",
+  name: 'messages',
   initialState: {
     messagesByChat: {},
     loading: false,
@@ -94,7 +151,7 @@ const messageSlice = createSlice({
     addMessage: (state, action) => {
       const message = action.payload;
       const chatId = message.chat?._id || message.chat;
-      console.log("[messageSlice] Adding new message to chat:", chatId);
+      console.log('[messageSlice] Adding new message to chat:', chatId);
 
       if (!state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = [];
@@ -106,15 +163,15 @@ const messageSlice = createSlice({
       const chatId = message.chat?._id || message.chat;
       const messageId = message._id;
       console.log(
-        "[messageSlice] Updating message:",
+        '[messageSlice] Updating message:',
         messageId,
-        "in chat:",
+        'in chat:',
         chatId
       );
 
       if (state.messagesByChat[chatId]) {
         const index = state.messagesByChat[chatId].findIndex(
-          (msg) => msg._id === messageId
+          msg => msg._id === messageId
         );
         if (index !== -1) {
           state.messagesByChat[chatId][index] = message;
@@ -124,38 +181,38 @@ const messageSlice = createSlice({
     deleteMessage: (state, action) => {
       const { chatId, messageId } = action.payload;
       console.log(
-        "[messageSlice] Deleting message:",
+        '[messageSlice] Deleting message:',
         messageId,
-        "from chat:",
+        'from chat:',
         chatId
       );
 
       if (state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = state.messagesByChat[chatId].filter(
-          (msg) => msg._id !== messageId
+          msg => msg._id !== messageId
         );
       }
     },
     clearMessages: (state, action) => {
       const chatId = action.payload;
-      console.log("[messageSlice] Clearing all messages for chat:", chatId);
+      console.log('[messageSlice] Clearing all messages for chat:', chatId);
       delete state.messagesByChat[chatId];
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     builder
-      .addCase(fetchMessages.pending, (state) => {
+      .addCase(fetchMessages.pending, state => {
         state.loading = true;
         state.error = null;
-        console.log("[messageSlice] Fetching messages pending");
+        console.log('[messageSlice] Fetching messages pending');
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.loading = false;
         const { chatId, messages } = action.payload;
         console.log(
-          "[messageSlice] Fetched messages for chat:",
+          '[messageSlice] Fetched messages for chat:',
           chatId,
-          "Count:",
+          'Count:',
           messages?.length
         );
 
@@ -169,7 +226,7 @@ const messageSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         console.error(
-          "[messageSlice] Fetch messages rejected:",
+          '[messageSlice] Fetch messages rejected:',
           action.payload
         );
       })
@@ -177,7 +234,7 @@ const messageSlice = createSlice({
         const message = action.payload;
         const chatId = message.chat?._id || message.chat;
         console.log(
-          "[messageSlice] Message sent successfully to chat:",
+          '[messageSlice] Message sent successfully to chat:',
           chatId
         );
 
@@ -186,21 +243,47 @@ const messageSlice = createSlice({
         }
         state.messagesByChat[chatId].push(message);
       })
+
       .addCase(markMessageAsRead.fulfilled, (state, action) => {
         const { messageId, chatId, readData } = action.payload;
-        console.log(
-          "[messageSlice] Message marked as read:",
-          messageId,
-          "in chat:",
-          chatId
-        );
-
         if (state.messagesByChat[chatId]) {
           const messageIndex = state.messagesByChat[chatId].findIndex(
-            (msg) => msg._id === messageId
+            msg => msg._id === messageId
           );
           if (messageIndex !== -1) {
             state.messagesByChat[chatId][messageIndex].readBy = readData.readBy;
+          }
+        }
+      })
+
+      .addCase(pinMessage.fulfilled, (state, action) => {
+        const { messageId, chatId, pinnedData } = action.payload;
+        if (state.messagesByChat[chatId]) {
+          const messageIndex = state.messagesByChat[chatId].findIndex(
+            msg => msg._id === messageId
+          );
+          if (messageIndex !== -1) {
+            state.messagesByChat[chatId][messageIndex] = {
+              ...state.messagesByChat[chatId][messageIndex],
+              isPinned: true,
+              pinnedAt: pinnedData.pinnedAt,
+            };
+          }
+        }
+      })
+
+      .addCase(unpinMessage.fulfilled, (state, action) => {
+        const { messageId, chatId, pinnedData } = action.payload;
+        if (state.messagesByChat[chatId]) {
+          const messageIndex = state.messagesByChat[chatId].findIndex(
+            msg => msg._id === messageId
+          );
+          if (messageIndex !== -1) {
+            state.messagesByChat[chatId][messageIndex] = {
+              ...state.messagesByChat[chatId][messageIndex],
+              isPinned: false,
+              pinnedAt: null,
+            };
           }
         }
       });
@@ -213,8 +296,8 @@ export const { addMessage, updateMessage, deleteMessage, clearMessages } =
 export const selectMessagesByChatId = (state, chatId) => {
   return state.messages.messagesByChat[chatId] || [];
 };
-export const selectMessagesLoading = (state) => state.messages.loading;
-export const selectMessagesError = (state) => state.messages.error;
+export const selectMessagesLoading = state => state.messages.loading;
+export const selectMessagesError = state => state.messages.error;
 
 export default messageSlice.reducer;
 // import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";

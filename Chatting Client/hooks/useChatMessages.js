@@ -1,12 +1,12 @@
 // hooks/useChatMessages.js
-"use client";
-import { useState, useEffect, useCallback } from "react";
-import { useSocket } from "../context/SocketContext";
-import { useDispatch } from "react-redux";
+'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { useSocket } from '../context/SocketContext';
+import { useDispatch } from 'react-redux';
 import {
   updateMessage,
   deleteMessage,
-} from "../redux/features/messages/messageSlice";
+} from '../redux/features/messages/messageSlice';
 
 export const useChatMessages = (chatId, initialMessages = []) => {
   const [messages, setMessages] = useState(initialMessages);
@@ -27,17 +27,17 @@ export const useChatMessages = (chatId, initialMessages = []) => {
       joinChat(chatId);
 
       // Listen for new messages
-      const handleNewMessage = (message) => {
+      const handleNewMessage = message => {
         if (message.chat.toString() === chatId.toString()) {
-          setMessages((prev) => [...prev, message]);
+          setMessages(prev => [...prev, message]);
         }
       };
 
       // Listen for message updates (edits, pins, reactions)
-      const handleMessageUpdate = (updatedMessage) => {
+      const handleMessageUpdate = updatedMessage => {
         if (updatedMessage.chat.toString() === chatId.toString()) {
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages(prev =>
+            prev.map(msg =>
               msg._id === updatedMessage._id ? updatedMessage : msg
             )
           );
@@ -46,15 +46,15 @@ export const useChatMessages = (chatId, initialMessages = []) => {
       };
 
       // Listen for message deletions
-      const handleMessageDelete = (data) => {
+      const handleMessageDelete = data => {
         if (data.chatId === chatId) {
-          setMessages((prev) =>
-            prev.map((msg) =>
+          setMessages(prev =>
+            prev.map(msg =>
               msg._id === data.messageId
                 ? {
                     ...msg,
                     isDeleted: true,
-                    content: "This message was deleted",
+                    content: 'This message was deleted',
                   }
                 : msg
             )
@@ -65,7 +65,7 @@ export const useChatMessages = (chatId, initialMessages = []) => {
 
       // Listen for typing status
       const handleTypingUpdate = ({ userId, isTyping }) => {
-        setTypingUsers((prev) => {
+        setTypingUsers(prev => {
           const newSet = new Set(prev);
           if (isTyping) {
             newSet.add(userId);
@@ -76,17 +76,17 @@ export const useChatMessages = (chatId, initialMessages = []) => {
         });
       };
 
-      socket.on("message-received", handleNewMessage);
-      socket.on("message-updated", handleMessageUpdate);
-      socket.on("message-deleted", handleMessageDelete);
-      socket.on("typing-update", handleTypingUpdate);
+      socket.on('message-received', handleNewMessage);
+      socket.on('message-updated', handleMessageUpdate);
+      socket.on('message-deleted', handleMessageDelete);
+      socket.on('typing-update', handleTypingUpdate);
 
       return () => {
         leaveChat(chatId);
-        socket.off("message-received", handleNewMessage);
-        socket.off("message-updated", handleMessageUpdate);
-        socket.off("message-deleted", handleMessageDelete);
-        socket.off("typing-update", handleTypingUpdate);
+        socket.off('message-received', handleNewMessage);
+        socket.off('message-updated', handleMessageUpdate);
+        socket.off('message-deleted', handleMessageDelete);
+        socket.off('typing-update', handleTypingUpdate);
       };
     }
   }, [chatId, socket, joinChat, leaveChat, dispatch]);
@@ -103,26 +103,19 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     [chatId, socketSendMessage]
   );
 
-  const markAsRead = useCallback(
-    (messageId, userId) => {
-      socketMarkRead(messageId, chatId, userId);
-    },
-    [chatId, socketMarkRead]
-  );
-
   const deleteMsg = useCallback(
-    (messageId) => {
+    messageId => {
       if (socket) {
-        socket.emit("delete-message", { messageId, chatId });
+        socket.emit('delete-message', { messageId, chatId });
       }
     },
     [socket, chatId]
   );
 
   const pinMessage = useCallback(
-    (messageId) => {
+    messageId => {
       if (socket) {
-        socket.emit("pin-message", { messageId, chatId });
+        socket.emit('pin-message', { messageId, chatId });
       }
     },
     [socket, chatId]
@@ -131,25 +124,25 @@ export const useChatMessages = (chatId, initialMessages = []) => {
   const addReaction = useCallback(
     (messageId, emoji) => {
       if (socket) {
-        socket.emit("add-reaction", { messageId, chatId, emoji });
+        socket.emit('add-reaction', { messageId, chatId, emoji });
       }
     },
     [socket, chatId]
   );
 
   const startTyping = useCallback(
-    (userId) => {
+    userId => {
       if (socket) {
-        socket.emit("typing-start", { chatId, userId });
+        socket.emit('typing-start', { chatId, userId });
       }
     },
     [socket, chatId]
   );
 
   const stopTyping = useCallback(
-    (userId) => {
+    userId => {
       if (socket) {
-        socket.emit("typing-stop", { chatId, userId });
+        socket.emit('typing-stop', { chatId, userId });
       }
     },
     [socket, chatId]
@@ -158,7 +151,6 @@ export const useChatMessages = (chatId, initialMessages = []) => {
   return {
     messages,
     sendMessage,
-    markAsRead,
     deleteMessage: deleteMsg,
     pinMessage,
     addReaction,
