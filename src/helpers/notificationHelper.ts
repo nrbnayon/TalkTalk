@@ -35,25 +35,3 @@ export const sendNotifications = async (data: any): Promise<INotification> => {
     throw error;
   }
 };
-
-// export const sendNotifications = async (data: any): Promise<INotification> => {
-//   const result = await Notification.create(data);
-
-//   //@ts-ignore
-//   const socketIo = global.io;
-
-//   if (
-//     data?.type === 'ADMIN' ||
-//     data?.type === 'HOST' ||
-//     data?.type === 'USER' ||
-//     data?.type === 'PAYMENT'
-//   ) {
-//     socketIo.emit(`get-notification::${data?.type}`, result);
-//   } else {
-//     socketIo.emit(`get-notification::${data?.receiver}`, result);
-//   }
-
-//   logger.info(`Notification sent: ${JSON.stringify(result)}`);
-
-//   return result;
-// };

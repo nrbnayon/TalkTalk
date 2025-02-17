@@ -81,7 +81,6 @@ export const statisticsHelper = {
   calculateStatistics,
 };
 
-// uses ------------ dynamically fetched statFields
 
 // Example 1: Using in Banner Service
 // import { statisticsHelper } from '../helpers/statisticsHelper';
