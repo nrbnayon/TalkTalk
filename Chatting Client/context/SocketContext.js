@@ -1,14 +1,14 @@
 // context/SocketContext.js
-"use client";
+'use client';
 import {
   createContext,
   useState,
   useEffect,
   useContext,
   useCallback,
-} from "react";
-import { useSelector } from "react-redux";
-import socketServiceInstance from "../services/socketService";
+} from 'react';
+import { useSelector } from 'react-redux';
+import socketServiceInstance from '../services/socketService';
 
 const SocketContext = createContext({
   socket: null,
@@ -38,8 +38,8 @@ export const SocketProvider = ({ children }) => {
   const [incomingCall, setIncomingCall] = useState(null);
   const [currentCall, setCurrentCall] = useState(null);
 
-  const { user, token } = useSelector((state) => state.auth);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const { user, token } = useSelector(state => state.auth);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   // Initialize socket connection
   useEffect(() => {
@@ -61,7 +61,7 @@ export const SocketProvider = ({ children }) => {
             setOnlineUsers(data.data);
           }
         } catch (error) {
-          console.error("[SocketContext] Error fetching online users:", error);
+          console.error('[SocketContext] Error fetching online users:', error);
         }
       };
 
@@ -78,13 +78,13 @@ export const SocketProvider = ({ children }) => {
     if (!socket) return;
 
     // Online users update
-    socket.on("online-users-update", (users) => {
+    socket.on('online-users-update', users => {
       setOnlineUsers(users);
     });
 
     // Typing indicators
-    socket.on("typing-update", ({ chatId, userId, isTyping }) => {
-      setTypingUsers((prev) => {
+    socket.on('typing-update', ({ chatId, userId, isTyping }) => {
+      setTypingUsers(prev => {
         const newMap = new Map(prev);
         if (isTyping) {
           newMap.set(`${chatId}-${userId}`, true);
@@ -96,16 +96,16 @@ export const SocketProvider = ({ children }) => {
     });
 
     // Incoming call
-    socket.on("call-incoming", (callSession) => {
+    socket.on('call-incoming', callSession => {
       setIncomingCall(callSession);
     });
 
     // Call status updates
-    socket.on("call-status-update", (updateData) => {
-      if (updateData.status === "ongoing") {
-        setCurrentCall((prev) => ({
+    socket.on('call-status-update', updateData => {
+      if (updateData.status === 'ongoing') {
+        setCurrentCall(prev => ({
           ...prev,
-          status: "ongoing",
+          status: 'ongoing',
           acceptedBy: updateData.acceptedBy,
         }));
         setIncomingCall(null);
@@ -113,8 +113,8 @@ export const SocketProvider = ({ children }) => {
     });
 
     // Call ended
-    socket.on("call-ended", (endData) => {
-      setCurrentCall((prev) => ({
+    socket.on('call-ended', endData => {
+      setCurrentCall(prev => ({
         ...prev,
         status: endData.status,
         endedBy: endData.endedBy || endData.rejectedBy,
@@ -124,11 +124,11 @@ export const SocketProvider = ({ children }) => {
     });
 
     // Call signal received
-    socket.on("call-signal-received", (signalData) => {
+    socket.on('call-signal-received', signalData => {
       if (currentCall && currentCall._id === signalData.callId) {
         // Forward to call handler component
         window.dispatchEvent(
-          new CustomEvent("webrtc-signal", {
+          new CustomEvent('webrtc-signal', {
             detail: signalData,
           })
         );
@@ -136,54 +136,54 @@ export const SocketProvider = ({ children }) => {
     });
 
     return () => {
-      socket.off("online-users-update");
-      socket.off("typing-update");
-      socket.off("call-incoming");
-      socket.off("call-status-update");
-      socket.off("call-ended");
-      socket.off("call-signal-received");
+      socket.off('online-users-update');
+      socket.off('typing-update');
+      socket.off('call-incoming');
+      socket.off('call-status-update');
+      socket.off('call-ended');
+      socket.off('call-signal-received');
     };
   }, [socket, currentCall]);
 
   // Socket action methods
   const joinChat = useCallback(
-    (chatId) => {
-      if (socket) socket.emit("join-chat", chatId);
+    chatId => {
+      if (socket) socket.emit('join-chat', chatId);
     },
     [socket]
   );
 
   const leaveChat = useCallback(
-    (chatId) => {
-      if (socket) socket.emit("leave-chat", chatId);
+    chatId => {
+      if (socket) socket.emit('leave-chat', chatId);
     },
     [socket]
   );
 
   const sendMessage = useCallback(
-    (message) => {
-      if (socket) socket.emit("new-message", message);
+    message => {
+      if (socket) socket.emit('new-message', message);
     },
     [socket]
   );
 
   const startTyping = useCallback(
     (chatId, userId) => {
-      if (socket) socket.emit("typing-start", { chatId, userId });
+      if (socket) socket.emit('typing-start', { chatId, userId });
     },
     [socket]
   );
 
   const stopTyping = useCallback(
     (chatId, userId) => {
-      if (socket) socket.emit("typing-stop", { chatId, userId });
+      if (socket) socket.emit('typing-stop', { chatId, userId });
     },
     [socket]
   );
 
   const markMessageRead = useCallback(
     (messageId, chatId, userId) => {
-      if (socket) socket.emit("message-read", { messageId, chatId, userId });
+      if (socket) socket.emit('message-read', { messageId, chatId, userId });
     },
     [socket]
   );
@@ -191,13 +191,13 @@ export const SocketProvider = ({ children }) => {
   const initiateCall = useCallback(
     (chatId, callType, participants) => {
       if (socket) {
-        socket.emit("call-initiate", { chatId, callType, participants });
+        socket.emit('call-initiate', { chatId, callType, participants });
         setCurrentCall({
           _id: chatId,
           chat: chatId,
           participants,
           callType,
-          status: "initiating",
+          status: 'initiating',
           initiator: user._id,
           startTime: new Date(),
         });
@@ -207,9 +207,9 @@ export const SocketProvider = ({ children }) => {
   );
 
   const acceptCall = useCallback(
-    (callId) => {
+    callId => {
       if (socket) {
-        socket.emit("call-accept", callId);
+        socket.emit('call-accept', callId);
         setCurrentCall(incomingCall);
         setIncomingCall(null);
       }
@@ -218,9 +218,9 @@ export const SocketProvider = ({ children }) => {
   );
 
   const rejectCall = useCallback(
-    (callId) => {
+    callId => {
       if (socket) {
-        socket.emit("call-reject", callId);
+        socket.emit('call-reject', callId);
         setIncomingCall(null);
       }
     },
@@ -230,19 +230,19 @@ export const SocketProvider = ({ children }) => {
   const sendCallSignal = useCallback(
     (callId, targetUserId, signal) => {
       if (socket) {
-        socket.emit("call-signal", { callId, targetUserId, signal });
+        socket.emit('call-signal', { callId, targetUserId, signal });
       }
     },
     [socket]
   );
 
   const endCall = useCallback(
-    (callId) => {
+    callId => {
       if (socket) {
-        socket.emit("call-end", callId);
-        setCurrentCall((prev) => ({
+        socket.emit('call-end', callId);
+        setCurrentCall(prev => ({
           ...prev,
-          status: "ended",
+          status: 'ended',
           endTime: new Date(),
         }));
         setTimeout(() => setCurrentCall(null), 3000);
@@ -254,15 +254,15 @@ export const SocketProvider = ({ children }) => {
   const sendReaction = useCallback(
     (messageId, chatId, emoji) => {
       if (socket) {
-        socket.emit("message-reaction", { messageId, chatId, emoji });
+        socket.emit('message-reaction', { messageId, chatId, emoji });
       }
     },
     [socket]
   );
 
   const isUserOnline = useCallback(
-    (userId) => {
-      return onlineUsers.some((user) => user._id === userId);
+    userId => {
+      return onlineUsers.some(user => user._id === userId);
     },
     [onlineUsers]
   );
@@ -298,3 +298,24 @@ export const SocketProvider = ({ children }) => {
 export const useSocket = () => {
   return useContext(SocketContext);
 };
+
+// Server (socketHelper)         Client (SocketContext)
+// 'user-online'          <-->  'user-online'
+// 'join-chat'           <-->  'join-chat'
+// 'typing-start/stop'   <-->  'typing-update'
+// 'new-message'         <-->  'message-received'
+// 'call-initiate'       <-->  'call-incoming'
+// 'message-reaction'    <-->  'message-updated'
+
+// Connection State Management:
+
+// Add connection state tracking in SocketContext
+// const [connectionState, setConnectionState] = useState('disconnected');
+
+// useEffect(() => {
+//   if (socket) {
+//     socket.on('connect', () => setConnectionState('connected'));
+//     socket.on('disconnect', () => setConnectionState('disconnected'));
+//     socket.on('reconnecting', () => setConnectionState('reconnecting'));
+//   }
+// }, [socket]);

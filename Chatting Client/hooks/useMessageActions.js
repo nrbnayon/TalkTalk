@@ -4,6 +4,7 @@ import {
   markMessageAsRead,
   pinMessage,
   unpinMessage,
+  updateMessage,
 } from '@/redux/features/messages/messageSlice';
 import { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
@@ -20,7 +21,6 @@ export const useMessageActions = chatId => {
           markMessageAsRead({ messageId, chatId, userId })
         ).unwrap();
 
-        // Emit socket event for real-time updates
         if (socket) {
           socket.emit('message-read', {
             messageId,
@@ -36,57 +36,61 @@ export const useMessageActions = chatId => {
     [dispatch, chatId, socket]
   );
 
-  // Pin message
-  const handlePinMessage = useCallback(
-    async messageId => {
+  // Unified pin/unpin handler
+  const handlePinToggle = useCallback(
+    async (messageId, isPinned) => {
       try {
-        const result = await dispatch(
-          pinMessage({ messageId, chatId })
-        ).unwrap();
+        const action = isPinned ? unpinMessage : pinMessage;
+        const result = await dispatch(action({ messageId, chatId })).unwrap();
 
-        // Emit socket event for real-time updates
-        if (socket && result.pinnedData) {
-          socket.emit('message-updated', {
-            messageId,
-            chatId,
-            updates: {
-              isPinned: true,
-              pinnedAt: result.pinnedData.pinnedAt,
-            },
-          });
-        }
-        return result;
-      } catch (error) {
-        console.error('Error pinning message:', error);
-        throw error; // Propagate error for handling in UI
-      }
-    },
-    [dispatch, chatId, socket]
-  );
-
-  // Unpin message
-  const handleUnpinMessage = useCallback(
-    async messageId => {
-      try {
-        const result = await dispatch(
-          unpinMessage({ messageId, chatId })
-        ).unwrap();
-
-        // Emit socket event for real-time updates
         if (socket) {
           socket.emit('message-updated', {
             messageId,
             chatId,
             updates: {
-              isPinned: false,
-              pinnedAt: null,
+              isPinned: !isPinned,
+              pinnedAt: !isPinned ? new Date().toISOString() : null,
             },
           });
         }
         return result;
       } catch (error) {
-        console.error('Error unpinning message:', error);
-        throw error; // Propagate error for handling in UI
+        console.error('Error toggling pin status:', error);
+        throw error;
+      }
+    },
+    [dispatch, chatId, socket]
+  );
+
+  // Handle reactions
+  const handleReaction = useCallback(
+    async (messageId, emoji) => {
+      try {
+        const response = await fetch(`/api/messages/${messageId}/react`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emoji }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to toggle reaction');
+        }
+
+        const { data } = await response.json();
+        dispatch(updateMessage(data));
+
+        if (socket) {
+          socket.emit('message-reaction', {
+            messageId,
+            chatId,
+            emoji,
+          });
+        }
+
+        return data;
+      } catch (error) {
+        console.error('Error handling reaction:', error);
+        throw error;
       }
     },
     [dispatch, chatId, socket]
@@ -101,8 +105,8 @@ export const useMessageActions = chatId => {
 
   return {
     markAsRead,
-    handlePinMessage,
-    handleUnpinMessage,
+    handlePinToggle,
     getPinnedMessages,
+    handleReaction,
   };
 };

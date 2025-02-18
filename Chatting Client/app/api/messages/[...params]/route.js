@@ -1,21 +1,21 @@
 // app/api/messages/[...params]/route.js
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api/v1";
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api/v1';
 
 async function fetchWithAuth(url, options = {}) {
   const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
+  const token = cookieStore.get('accessToken')?.value;
 
   const headers = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     ...options.headers,
   };
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -25,10 +25,10 @@ async function fetchWithAuth(url, options = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({
-      message: "An error occurred while fetching the data.",
+      message: 'An error occurred while fetching the data.',
     }));
     throw new Error(
-      error.message || "An error occurred while fetching the data."
+      error.message || 'An error occurred while fetching the data.'
     );
   }
 
@@ -48,14 +48,14 @@ export async function GET(request, { params }) {
       return NextResponse.json({ data: data.data });
     } catch (error) {
       return NextResponse.json(
-        { error: error.message || "Failed to fetch messages" },
+        { error: error.message || 'Failed to fetch messages' },
         { status: 500 }
       );
     }
   }
 
   // Handle unseen message count: /api/messages/{chatId}/unseen
-  if (pathSegments.length === 2 && pathSegments[1] === "unseen") {
+  if (pathSegments.length === 2 && pathSegments[1] === 'unseen') {
     const chatId = pathSegments[0];
 
     try {
@@ -63,13 +63,13 @@ export async function GET(request, { params }) {
       return NextResponse.json({ data: data.data });
     } catch (error) {
       return NextResponse.json(
-        { error: error.message || "Failed to get unseen message count" },
+        { error: error.message || 'Failed to get unseen message count' },
         { status: 500 }
       );
     }
   }
 
-  return NextResponse.json({ error: "Invalid route" }, { status: 404 });
+  return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
 
 export async function DELETE(request, { params }) {
@@ -80,20 +80,46 @@ export async function DELETE(request, { params }) {
 
     try {
       await fetchWithAuth(`/messages/${messageId}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       return NextResponse.json({ success: true, messageId });
     } catch (error) {
       return NextResponse.json(
-        { error: error.message || "Failed to delete message" },
+        { error: error.message || 'Failed to delete message' },
         { status: 500 }
       );
     }
   }
 
-  return NextResponse.json({ error: "Invalid route" }, { status: 404 });
+  return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
+}
+// Updated POST method for reactions
+export async function POST(request, { params }) {
+  const pathSegments = await Promise.resolve(params.params);
+
+  if (pathSegments.length === 2 && pathSegments[1] === 'react') {
+    const messageId = pathSegments[0];
+    try {
+      const body = await request.json();
+      // Updated to match your backend route
+      const data = await fetchWithAuth(`/messages/${messageId}/react`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      return NextResponse.json({ data: data.data });
+    } catch (error) {
+      console.error('Reaction error:', error);
+      return NextResponse.json(
+        { error: error.message || 'Failed to toggle reaction' },
+        { status: 500 }
+      );
+    }
+  }
+
+  return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
 
+// Updated PATCH method with better pin toggle handling
 export async function PATCH(request, { params }) {
   const pathSegments = await Promise.resolve(params.params);
 
@@ -102,52 +128,66 @@ export async function PATCH(request, { params }) {
     const action = pathSegments[1];
 
     // Handle edit: /api/messages/{messageId}/edit
-    if (action === "edit") {
+    if (action === 'edit') {
       try {
         const body = await request.json();
         const data = await fetchWithAuth(`/messages/${messageId}/edit`, {
-          method: "PATCH",
+          method: 'PATCH',
           body: JSON.stringify(body),
         });
         return NextResponse.json({ data: data.data });
       } catch (error) {
         return NextResponse.json(
-          { error: error.message || "Failed to edit message" },
+          { error: error.message || 'Failed to edit message' },
           { status: 500 }
         );
       }
     }
 
-    // Handle pin: /api/messages/{messageId}/pin
-    if (action === "pin") {
+    // Updated pin handling
+    if (action === 'pin') {
       try {
+        const body = await request.json();
+        const { chatId } = body;
+
+        if (!chatId) {
+          return NextResponse.json(
+            { error: 'chatId is required' },
+            { status: 400 }
+          );
+        }
+
         const data = await fetchWithAuth(`/messages/${messageId}/pin`, {
-          method: "PATCH",
+          method: 'PATCH',
+          body: JSON.stringify({ chatId }),
         });
+
+        console.log('Pin toggle response:', data);
         return NextResponse.json({ data: data.data });
       } catch (error) {
+        console.error('Pin toggle error:', error);
         return NextResponse.json(
-          { error: error.message || "Failed to toggle pin status" },
+          { error: error.message || 'Failed to toggle pin status' },
           { status: 500 }
         );
       }
     }
 
-    // Handle read: /api/messages/{messageId}/read
-    if (action === "read") {
+    // Handle read status
+    if (action === 'read') {
       try {
         const data = await fetchWithAuth(`/messages/${messageId}/read`, {
-          method: "PATCH",
+          method: 'PATCH',
         });
         return NextResponse.json({ data: data.data });
       } catch (error) {
         return NextResponse.json(
-          { error: error.message || "Failed to mark message as read" },
+          { error: error.message || 'Failed to mark message as read' },
           { status: 500 }
         );
       }
     }
   }
 
-  return NextResponse.json({ error: "Invalid route" }, { status: 404 });
+  return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }

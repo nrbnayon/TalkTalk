@@ -1,12 +1,11 @@
 // components/chat/EmojiPicker.js
-import React from "react";
-import EmojiPickerReact from "emoji-picker-react";
+import EmojiPickerReact from 'emoji-picker-react';
 
-export const EmojiPicker = ({ onEmojiSelect, theme = "light" }) => {
+export const EmojiPicker = ({ onEmojiSelect, theme = 'light' }) => {
   return (
     <div className="emoji-picker-container">
       <EmojiPickerReact
-        onEmojiClick={(emojiData) => {
+        onEmojiClick={emojiData => {
           onEmojiSelect(emojiData.emoji);
         }}
         theme={theme}

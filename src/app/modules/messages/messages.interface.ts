@@ -31,7 +31,8 @@ export interface IMessage {
   content: string;
   chat: Types.ObjectId;
   readBy: Types.ObjectId[];
-  replyTo?: Types.ObjectId;
+  replyTo?: Types.ObjectId[];
+  pinnedBy?: Types.ObjectId[];
   isPinned: boolean;
   isEdited: boolean;
   isDeleted: boolean;

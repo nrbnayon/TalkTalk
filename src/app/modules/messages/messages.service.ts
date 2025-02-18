@@ -1,8 +1,8 @@
 // src\app\modules\messages\messages.service.ts
+import { Types } from 'mongoose';
 import httpStatus from 'http-status';
 import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
-import { Types } from 'mongoose';
 import { Message } from './messages.model';
 import {
   IMessage,
@@ -11,7 +11,15 @@ import {
   MessageType,
 } from './messages.interface';
 
-const processUploadedFile = async (file: Express.Multer.File) => {
+const processUploadedFile = async (
+  file: Express.Multer.File
+): Promise<{
+  url: string;
+  metadata: {
+    mimeType: string;
+    size: number;
+  };
+}> => {
   return {
     url: `/uploads/${file.filename}`,
     metadata: {
@@ -22,13 +30,17 @@ const processUploadedFile = async (file: Express.Multer.File) => {
 };
 
 const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
-  const messages = await Message.find({
-    chat: chatId,
-    // isDeleted: false, // for show deleted messages
-  })
+  const messages = await Message.find({ chat: chatId })
     .populate('sender', 'name email image')
-    .populate('replyTo')
+    .populate({
+      path: 'replyTo',
+      populate: {
+        path: 'sender',
+        select: 'name image',
+      },
+    })
     .populate('chat')
+    .populate('readBy', 'name image')
     .sort({ createdAt: 1 });
 
   return messages.map(msg => msg.toObject());
@@ -38,14 +50,14 @@ const sendMessage = async (
   userId: string,
   content: string,
   chatId: string,
-  files: Express.Multer.File[],
+  files: Express.Multer.File[] = [],
   messageType: MessageType = MessageType.TEXT,
   replyToId?: string
 ): Promise<IMessage> => {
   if ((!content && !files?.length) || !chatId) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      'Invalid data passed into request'
+      'Message content or files required'
     );
   }
 
@@ -65,7 +77,7 @@ const sendMessage = async (
     );
   }
 
-  const newMessage = {
+  const newMessage = await Message.create({
     sender: userId,
     content,
     chat: chatId,
@@ -73,9 +85,19 @@ const sendMessage = async (
     attachments,
     replyTo: replyToId ? new Types.ObjectId(replyToId) : undefined,
     readBy: [userId],
-  };
+  });
 
-  let message = await Message.create(newMessage);
+  const message = await Message.findById(newMessage._id)
+    .populate('sender', 'name image')
+    .populate({
+      path: 'replyTo',
+      populate: {
+        path: 'sender',
+        select: 'name image',
+      },
+    })
+    .populate('chat')
+    .populate('readBy', 'name image');
 
   if (!message) {
     throw new ApiError(
@@ -84,68 +106,9 @@ const sendMessage = async (
     );
   }
 
-  message = await message.populate([
-    { path: 'sender', select: 'name image' },
-    { path: 'chat' },
-    { path: 'replyTo' },
-  ]);
-
-  await Chat.findByIdAndUpdate(chatId, { latestMessage: message });
+  await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
 
   return message.toObject();
-};
-
-const addReaction = async (
-  messageId: string,
-  userId: string,
-  emoji: string
-): Promise<IMessage> => {
-  const message = await Message.findById(messageId);
-  if (!message) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
-  }
-
-  // Remove existing reaction from this user if any
-  message.reactions =
-    message.reactions?.filter(
-      reaction => !reaction.users.includes(new Types.ObjectId(userId))
-    ) || [];
-
-  // Add new reaction
-  const existingReaction = message.reactions.find(r => r.emoji === emoji);
-  if (existingReaction) {
-    existingReaction.users.push(new Types.ObjectId(userId));
-  } else {
-    message.reactions.push({
-      emoji,
-      users: [new Types.ObjectId(userId)],
-    });
-  }
-
-  const updatedMessage = await message.save();
-  return updatedMessage.toObject();
-};
-
-const removeReaction = async (
-  messageId: string,
-  userId: string
-): Promise<IMessage> => {
-  const message = await Message.findById(messageId);
-  if (!message) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
-  }
-
-  // Remove user from all reactions
-  message.reactions =
-    message.reactions
-      ?.map(reaction => ({
-        ...reaction,
-        users: reaction.users.filter(user => user.toString() !== userId),
-      }))
-      .filter(reaction => reaction.users.length > 0) || [];
-
-  const updatedMessage = await message.save();
-  return updatedMessage.toObject();
 };
 
 const editMessage = async (
@@ -153,18 +116,17 @@ const editMessage = async (
   userId: string,
   newContent: string
 ): Promise<IMessage> => {
-  const message = await Message.findById(messageId);
+  const message = await Message.findOne({
+    _id: messageId,
+    sender: userId,
+    isDeleted: false,
+  });
 
   if (!message) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
-  }
-
-  if (message.sender.toString() !== userId) {
-    throw new ApiError(httpStatus.FORBIDDEN, 'Can only edit your own messages');
-  }
-
-  if (message.isDeleted) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot edit deleted message');
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      'Message not found or cannot be edited'
+    );
   }
 
   const editHistoryEntry = {
@@ -182,7 +144,15 @@ const editMessage = async (
     { new: true }
   )
     .populate('sender', 'name image')
-    .populate('replyTo');
+    .populate({
+      path: 'replyTo',
+      populate: {
+        path: 'sender',
+        select: 'name image',
+      },
+    })
+    .populate('chat')
+    .populate('readBy', 'name image');
 
   if (!updatedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
@@ -195,16 +165,16 @@ const deleteMessage = async (
   messageId: string,
   userId: string
 ): Promise<IMessage> => {
-  const message = await Message.findById(messageId);
+  const message = await Message.findOne({
+    _id: messageId,
+    sender: userId,
+    isDeleted: false,
+  });
 
   if (!message) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
-  }
-
-  if (message.sender.toString() !== userId) {
     throw new ApiError(
-      httpStatus.FORBIDDEN,
-      'Can only delete your own messages'
+      httpStatus.NOT_FOUND,
+      'Message not found or cannot be deleted'
     );
   }
 
@@ -216,7 +186,139 @@ const deleteMessage = async (
       content: 'This message has been deleted',
     },
     { new: true }
+  )
+    .populate('sender', 'name image')
+    .populate('chat')
+    .populate('readBy', 'name image');
+
+  if (!updatedMessage) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
+  }
+
+  return updatedMessage.toObject();
+};
+
+const togglePinMessage = async (
+  messageId: string,
+  userId: string,
+  chatId: string
+): Promise<IMessage> => {
+  const message = await Message.findOne({
+    _id: messageId,
+    chat: chatId,
+  });
+
+  if (!message) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
+  }
+
+  const updatedMessage = await Message.findByIdAndUpdate(
+    messageId,
+    [
+      {
+        // isPinned: !message.isPinned,
+        $set: {
+          isPinned: { $not: '$isPinned' },
+          pinnedBy: userId,
+          pinnedAt: new Date(),
+        },
+      },
+    ],
+    { new: true }
+  )
+    .populate('sender', 'name image')
+    .populate('pinnedBy', 'name image')
+    .populate('chat')
+    .populate('readBy', 'name image');
+
+  if (!updatedMessage) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
+  }
+
+  return updatedMessage.toObject();
+};
+
+const toggleReaction = async (
+  messageId: string,
+  userId: string,
+  emoji: string
+): Promise<IMessage> => {
+  const message = await Message.findById(messageId);
+
+  if (!message) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
+  }
+
+  if (!message.reactions) {
+    message.reactions = [];
+  }
+
+  const userReactionIndex = message.reactions.findIndex(reaction =>
+    reaction.users.some(user => user.toString() === userId)
   );
+
+  if (userReactionIndex !== -1) {
+    const existingReaction = message.reactions[userReactionIndex];
+
+    if (existingReaction.emoji === emoji) {
+      existingReaction.users = existingReaction.users.filter(
+        user => user.toString() !== userId
+      );
+
+      if (existingReaction.users.length === 0) {
+        message.reactions.splice(userReactionIndex, 1);
+      }
+    } else {
+      message.reactions[userReactionIndex].users =
+        existingReaction.users.filter(user => user.toString() !== userId);
+
+      if (message.reactions[userReactionIndex].users.length === 0) {
+        message.reactions.splice(userReactionIndex, 1);
+      }
+
+      const newReactionIndex = message.reactions.findIndex(
+        r => r.emoji === emoji
+      );
+      if (newReactionIndex !== -1) {
+        message.reactions[newReactionIndex].users.push(
+          new Types.ObjectId(userId)
+        );
+      } else {
+        message.reactions.push({
+          emoji,
+          users: [new Types.ObjectId(userId)],
+        });
+      }
+    }
+  } else {
+    const existingEmojiIndex = message.reactions.findIndex(
+      r => r.emoji === emoji
+    );
+    if (existingEmojiIndex !== -1) {
+      message.reactions[existingEmojiIndex].users.push(
+        new Types.ObjectId(userId)
+      );
+    } else {
+      message.reactions.push({
+        emoji,
+        users: [new Types.ObjectId(userId)],
+      });
+    }
+  }
+
+  await message.save();
+
+  const updatedMessage = await Message.findById(messageId)
+    .populate('sender', 'name image')
+    .populate({
+      path: 'replyTo',
+      populate: {
+        path: 'sender',
+        select: 'name image',
+      },
+    })
+    .populate('chat')
+    .populate('readBy', 'name image');
 
   if (!updatedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
@@ -235,7 +337,10 @@ const markMessageAsRead = async (
       $addToSet: { readBy: userId },
     },
     { new: true }
-  ).populate('readBy', 'name image');
+  )
+    .populate('sender', 'name image')
+    .populate('readBy', 'name image')
+    .populate('chat');
 
   if (!message) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
@@ -244,36 +349,10 @@ const markMessageAsRead = async (
   return message.toObject();
 };
 
-const togglePinMessage = async (
-  messageId: string,
-  userId: string
-): Promise<IMessage> => {
-  const message = await Message.findById(messageId);
-
-  if (!message) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
-  }
-
-  const updatedMessage = await Message.findByIdAndUpdate(
-    messageId,
-    {
-      isPinned: !message.isPinned,
-    },
-    { new: true }
-  ).populate('sender', 'name image');
-
-  if (!updatedMessage) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
-  }
-
-  return updatedMessage.toObject();
-};
-
 const searchMessages = async (
   filters: IMessageFilters
 ): Promise<IMessage[]> => {
   const { searchTerm, chatId, isPinned, startDate, endDate } = filters;
-
   const query: any = { isDeleted: false };
 
   if (searchTerm) {
@@ -296,8 +375,15 @@ const searchMessages = async (
 
   const messages = await Message.find(query)
     .populate('sender', 'name email image')
-    .populate('replyTo')
+    .populate({
+      path: 'replyTo',
+      populate: {
+        path: 'sender',
+        select: 'name image',
+      },
+    })
     .populate('chat')
+    .populate('readBy', 'name image')
     .sort({ createdAt: -1 });
 
   return messages.map(msg => msg.toObject());
@@ -307,25 +393,22 @@ const getUnseenMessageCount = async (
   chatId: string,
   userId: string
 ): Promise<number> => {
-  const count = await Message.countDocuments({
+  return Message.countDocuments({
     chat: chatId,
     readBy: { $ne: userId },
     sender: { $ne: userId },
     isDeleted: false,
   });
-
-  return count;
 };
 
 export const MessageService = {
   getAllMessages,
   sendMessage,
-  addReaction,
-  removeReaction,
   editMessage,
   deleteMessage,
-  markMessageAsRead,
   togglePinMessage,
+  toggleReaction,
+  markMessageAsRead,
   searchMessages,
   getUnseenMessageCount,
 };

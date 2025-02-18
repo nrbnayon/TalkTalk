@@ -88,12 +88,13 @@ export const pinMessage = createAsyncThunk(
   'messages/pinMessage',
   async ({ messageId, chatId }, { rejectWithValue }) => {
     try {
+      console.log('Get chat id in messageSlice:', chatId);
       const response = await fetch(`/api/messages/${messageId}/pin`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isPinned: true }),
+        body: JSON.stringify({ isPinned: true, chatId }),
       });
 
       if (!response.ok) {
@@ -125,7 +126,7 @@ export const unpinMessage = createAsyncThunk(
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isPinned: false }),
+        body: JSON.stringify({ isPinned: false, chatId }),
       });
 
       if (!response.ok) {

@@ -8,6 +8,7 @@ import {
   IMessage,
 } from '../app/modules/messages/messages.interface';
 import { Types } from 'mongoose';
+import { MessageService } from '../app/modules/messages/messages.service';
 
 interface ICallSignal {
   type: 'offer' | 'answer' | 'candidate';
@@ -288,16 +289,30 @@ class SocketHelper {
       // Handle reactions
       socket.on(
         'message-reaction',
-        (data: { messageId: string; chatId: string; emoji: string }) => {
+        async (data: { messageId: string; chatId: string; emoji: string }) => {
           const { messageId, chatId, emoji } = data;
           const userId = this.connectedSockets.get(socket.id);
 
+          // console.log(
+          //   'Updated message reaction in socket helper::: ',
+          //   messageId,
+          //   chatId,
+          //   emoji
+          // );
+
           if (userId) {
-            socket.to(chatId).emit('reaction-update', {
-              messageId,
-              userId,
-              emoji,
-            });
+            try {
+              const updatedMessage = await MessageService.toggleReaction(
+                messageId,
+                userId,
+                emoji
+              );
+
+              // Broadcast to all users in the chat
+              socket.to(chatId).emit('message-updated', updatedMessage);
+            } catch (error) {
+              console.error('Error handling reaction:', error);
+            }
           }
         }
       );
@@ -324,6 +339,13 @@ class SocketHelper {
               );
             }
 
+            // Clear any typing timeouts for this user
+            // Array.from(this.typingUsers.entries())
+            //   .filter(([key]) => key.includes(userId))
+            //   .forEach(([key]) => {
+            //     clearTimeout(this.typingUsers.get(key));
+            //     this.typingUsers.delete(key);
+            //   });
             // Remove the socket from tracking
             this.connectedSockets.delete(socket.id);
           } catch (error) {

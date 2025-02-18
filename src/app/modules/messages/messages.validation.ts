@@ -52,10 +52,24 @@ const searchMessagesZodSchema = z.object({
   }),
 });
 
+const reactionZodSchema = z.object({
+  params: z.object({
+    messageId: z.string({
+      required_error: 'Message ID is required',
+    }),
+  }),
+  body: z.object({
+    emoji: z.string({
+      required_error: 'Emoji is required',
+    }),
+  }),
+});
+
 export const MessageValidation = {
   messageIdParamSchema,
   getChatMessagesZodSchema,
   sendMessageZodSchema,
   editMessageZodSchema,
   searchMessagesZodSchema,
+  reactionZodSchema,
 };

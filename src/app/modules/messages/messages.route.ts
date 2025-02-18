@@ -64,4 +64,11 @@ router.get(
   MessageController.getUnseenMessageCount
 );
 
+router.post(
+  '/:messageId/react',
+  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
+  validateRequest(MessageValidation.reactionZodSchema),
+  MessageController.toggleReaction
+);
+
 export const MessageRoutes = router;

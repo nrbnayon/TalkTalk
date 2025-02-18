@@ -15,12 +15,9 @@ import PinnedMessage from './PinnedMessage';
 
 const MessagesArea = ({ messages = [], currentUser, chatId }) => {
   const messagesEndRef = useRef(null);
-  const {
-    markAsRead,
-    handlePinMessage,
-    handleUnpinMessage,
-    getPinnedMessages,
-  } = useMessageActions(chatId);
+  const { markAsRead, handlePinToggle, getPinnedMessages, handleReaction } =
+    useMessageActions(chatId);
+
   const { messageRefs, initializeMessageRefs, scrollToMessage } =
     useMessageScroll();
 
@@ -32,10 +29,9 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
   });
 
   const dispatch = useDispatch();
-  const { markMessageRead, socket } = useSocket();
+  const { socket } = useSocket();
   const loading = useSelector(selectMessagesLoading);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     const scrollToBottom = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,11 +41,9 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
     }
   }, [messages]);
 
-  // Mark messages as read and handle real-time updates
   useEffect(() => {
     if (!socket || !currentUser) return;
 
-    // Mark unread messages as read
     const markUnreadMessages = async () => {
       if (messages.length > 0 && currentUser?._id && chatId) {
         const unreadMessages = messages.filter(
@@ -66,7 +60,6 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
 
     markUnreadMessages();
 
-    // Socket event handlers
     const handleMessageUpdate = updatedMessage => {
       dispatch(updateMessage(updatedMessage));
     };
@@ -92,7 +85,6 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
       }
     };
 
-    // Subscribe to socket events
     const events = {
       'message-updated': handleMessageUpdate,
       'message-deleted': handleMessageDelete,
@@ -135,26 +127,6 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
         },
       })
     );
-  };
-
-  const handleReaction = async (messageId, emoji) => {
-    try {
-      const response = await fetch(`/api/messages/${messageId}/react`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emoji }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        dispatch(updateMessage(data.data));
-      }
-    } catch (error) {
-      console.error('Error adding reaction:', error);
-    } finally {
-      setShowEmojiPicker(false);
-      setSelectedMessage(null);
-    }
   };
 
   const openEmojiPicker = (message, event) => {
@@ -201,7 +173,7 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
       {latestPinnedMessage && (
         <PinnedMessage
           message={latestPinnedMessage}
-          onUnpin={() => handleUnpinMessage(latestPinnedMessage._id)}
+          onUnpin={() => handlePinToggle(latestPinnedMessage._id, true)}
           onScrollTo={() => scrollToMessage(latestPinnedMessage._id)}
         />
       )}
@@ -212,14 +184,18 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
         messageRefs={messageRefs}
         onDeleteMessage={handleDeleteMessage}
         onEditMessage={handleEditMessage}
-        onPinMessage={handlePinMessage}
+        onPinMessage={messageId => handlePinToggle(messageId, false)}
+        onUnpinMessage={messageId => handlePinToggle(messageId, true)}
         onReaction={handleReaction}
         onOpenEmojiPicker={openEmojiPicker}
         onScrollToMessage={scrollToMessage}
         showEmojiPicker={showEmojiPicker}
         selectedMessage={selectedMessage}
         emojiPickerPosition={emojiPickerPosition}
-        onCloseEmojiPicker={() => setShowEmojiPicker(false)}
+        onCloseEmojiPicker={() => {
+          setShowEmojiPicker(false);
+          setSelectedMessage(null);
+        }}
         messagesEndRef={messagesEndRef}
       />
     </div>

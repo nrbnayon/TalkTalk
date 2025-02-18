@@ -1,3 +1,4 @@
+// components\chat\MessageList.js
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -26,6 +27,7 @@ const MessageList = ({
   onDeleteMessage,
   onEditMessage,
   onPinMessage,
+  onUnpinMessage,
   onReaction,
   onOpenEmojiPicker,
   onScrollToMessage,
@@ -38,9 +40,8 @@ const MessageList = ({
   const formatMessageTime = dateStr => {
     try {
       if (!dateStr) return '';
-
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return ''; // Invalid date check
+      if (isNaN(date.getTime())) return '';
 
       if (isToday(date)) {
         return format(date, 'h:mm a');
@@ -58,10 +59,8 @@ const MessageList = ({
   const formatRelativeTime = dateStr => {
     try {
       if (!dateStr) return '';
-
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return ''; // Invalid date check
-
+      if (isNaN(date.getTime())) return '';
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
       console.error('Relative time formatting error:', error);
@@ -69,10 +68,61 @@ const MessageList = ({
     }
   };
 
+  const getReactionCount = (reactions, emoji) => {
+    if (!reactions) return 0;
+    const reaction = reactions.find(r => r.emoji === emoji);
+    return reaction ? reaction.users.length : 0;
+  };
+
+  const hasUserReacted = (reactions, emoji) => {
+    if (!reactions) return false;
+    return reactions.some(
+      reaction =>
+        reaction.emoji === emoji &&
+        reaction.users.some(
+          user => user.toString() === currentUser._id.toString()
+        )
+    );
+  };
+
+  const renderReactionButton = (message, emoji) => {
+    const count = getReactionCount(message.reactions, emoji);
+    const hasReacted = hasUserReacted(message.reactions, emoji);
+
+    return (
+      <button
+        key={emoji}
+        className={cn(
+          'inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-sm transition-all',
+          'hover:bg-gray-50 hover:border-gray-300',
+          'shadow-sm hover:shadow',
+          hasReacted
+            ? 'bg-blue-50 border border-blue-200'
+            : 'bg-white border border-gray-200'
+        )}
+        onClick={() => onReaction(message._id, emoji)}
+      >
+        <span>{emoji}</span>
+        {count > 0 && (
+          <span
+            className={cn(
+              'text-xs font-medium',
+              hasReacted ? 'text-blue-600' : 'text-gray-600'
+            )}
+          >
+            {count}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   const renderMessage = (message, isPinnedView = false) => {
     if (!message?.sender || !currentUser) return null;
 
-    const isOwnMessage = message.sender._id === currentUser._id;
+    // Ensure we're comparing strings with strings or ObjectIds with ObjectIds
+    const isOwnMessage =
+      message.sender._id.toString() === currentUser._id.toString();
     const messageTime = formatMessageTime(message.createdAt);
     const editTime =
       message.editHistory?.length > 0
@@ -84,15 +134,22 @@ const MessageList = ({
       ? formatRelativeTime(message.deletedAt)
       : null;
 
-    const otherUsers = message.chat.users.filter(
-      userId => userId !== currentUser._id && userId !== message.sender._id
-    );
+    // Safely handle message.chat being undefined
+    const otherUsers =
+      message.chat?.users?.filter(
+        userId =>
+          userId.toString() !== currentUser._id.toString() &&
+          userId.toString() !== message.sender._id.toString()
+      ) || [];
 
     const isRead = otherUsers.every(userId =>
       message.readBy?.some(
-        reader => (typeof reader === 'string' ? reader : reader._id) === userId
+        reader => reader._id.toString() === userId.toString()
       )
     );
+
+    const senderName = message.sender.name || 'Unknown User';
+    const senderImage = message.sender.image || null;
 
     return (
       <div
@@ -102,30 +159,29 @@ const MessageList = ({
             messageRefs.current[message._id] = { current: el };
           }
         }}
-        className={`flex items-start gap-3 group ${
-          isOwnMessage ? 'flex-row-reverse' : 'flex-row'
-        } ${isPinnedView ? 'bg-gray-50/80 p-3 rounded-lg mb-2' : 'mb-4'}`}
+        className={cn(
+          'flex items-start gap-3 group',
+          isOwnMessage ? 'flex-row-reverse' : 'flex-row',
+          isPinnedView ? 'bg-gray-50/80 p-3 rounded-lg mb-2' : 'mb-4'
+        )}
       >
         <Avatar className="h-10 w-10 border-2 border-gray-100 shadow-sm flex-shrink-0">
-          <AvatarImage
-            src={isOwnMessage ? currentUser.image : message.sender.image}
-            alt={isOwnMessage ? currentUser.name : message.sender.name}
-          />
+          <AvatarImage src={senderImage} alt={senderName} />
           <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700">
-            {(isOwnMessage ? currentUser.name : message.sender.name)
-              ?.substring(0, 2)
-              .toUpperCase()}
+            {senderName?.substring(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
 
         <div
-          className={`flex flex-col ${
-            isOwnMessage ? 'items-end' : 'items-start'
-          } max-w-[65%]`}
+          className={cn(
+            'flex flex-col',
+            isOwnMessage ? 'items-end' : 'items-start',
+            'max-w-[65%]'
+          )}
         >
           {!isOwnMessage && (
             <div className="flex items-center text-xs text-gray-600 mb-1 gap-2 font-medium">
-              <span>{message.sender.name}</span>
+              <span>{senderName}</span>
               <span className="text-gray-400">•</span>
               <span className="text-gray-400">{messageTime}</span>
             </div>
@@ -165,34 +221,26 @@ const MessageList = ({
 
             {message.reactions?.length > 0 && (
               <div
-                className={`flex flex-wrap gap-1.5 mt-2 ${
+                className={cn(
+                  'flex flex-wrap gap-1.5 mt-2',
                   isOwnMessage ? 'justify-end' : 'justify-start'
-                }`}
+                )}
               >
-                {message.reactions.map((reaction, index) => (
-                  <button
-                    key={index}
-                    className={cn(
-                      'inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-sm transition-all',
-                      'bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300',
-                      'shadow-sm hover:shadow'
-                    )}
-                    onClick={() => onReaction(message._id, reaction.emoji)}
-                  >
-                    <span>{reaction.emoji}</span>
-                    <span className="text-gray-600 text-xs font-medium">
-                      {reaction.count}
-                    </span>
-                  </button>
-                ))}
+                {['👍', '❤️', '😊', '😂', '😮', '😢'].map(
+                  emoji =>
+                    message.reactions.some(r => r.emoji === emoji) &&
+                    renderReactionButton(message, emoji)
+                )}
               </div>
             )}
 
             {!isPinnedView && (
               <div
-                className={`absolute top-1/2 -translate-y-1/2 ${
-                  isOwnMessage ? '-left-12' : '-right-12'
-                } opacity-0 group-hover:opacity-100 transition-all duration-200`}
+                className={cn(
+                  'absolute top-1/2 -translate-y-1/2',
+                  isOwnMessage ? '-left-12' : '-right-12',
+                  'opacity-0 group-hover:opacity-100 transition-all duration-200'
+                )}
               >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -218,6 +266,22 @@ const MessageList = ({
                       <Reply className="h-4 w-4 mr-2" />
                       Reply
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        message.isPinned
+                          ? onUnpinMessage(message._id)
+                          : onPinMessage(message._id)
+                      }
+                    >
+                      <Pin className="h-4 w-4 mr-2" />
+                      {message.isPinned ? 'Unpin' : 'Pin'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={e => onOpenEmojiPicker(message, e)}
+                    >
+                      <Heart className="h-4 w-4 mr-2" />
+                      React
+                    </DropdownMenuItem>
                     {isOwnMessage && (
                       <>
                         <DropdownMenuItem
@@ -235,16 +299,6 @@ const MessageList = ({
                         </DropdownMenuItem>
                       </>
                     )}
-                    <DropdownMenuItem onClick={() => onPinMessage(message._id)}>
-                      <Pin className="h-4 w-4 mr-2" />
-                      {message.isPinned ? 'Unpin' : 'Pin'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={e => onOpenEmojiPicker(message, e)}
-                    >
-                      <Heart className="h-4 w-4 mr-2" />
-                      React
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -266,7 +320,7 @@ const MessageList = ({
             )}
             {message.isEdited && (
               <span className="text-xs text-gray-400 ml-2">
-                edited {editTime}
+                (edited) {editTime}
               </span>
             )}
             {message.isDeleted && (
@@ -331,7 +385,10 @@ const MessageList = ({
                 <button
                   key={emoji}
                   className="text-2xl hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                  onClick={() => onReaction(selectedMessage._id, emoji)}
+                  onClick={() => {
+                    onReaction(selectedMessage._id, emoji);
+                    onCloseEmojiPicker();
+                  }}
                 >
                   {emoji}
                 </button>

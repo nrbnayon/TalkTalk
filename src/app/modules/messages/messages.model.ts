@@ -66,6 +66,11 @@ const messageSchema = new Schema<IMessage>(
       type: Schema.Types.ObjectId,
       ref: 'Message',
     },
+    pinnedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Message',
+    },
+
     isPinned: {
       type: Boolean,
       default: false,
