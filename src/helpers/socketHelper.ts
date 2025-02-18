@@ -134,7 +134,7 @@ class SocketHelper {
           logger.error(colors.red('[SocketHelper] Invalid message format'));
           return;
         }
-
+        console.log('GET new message in socket::', message);
         // Broadcast to all users in the chat except the sender
         socket.to(message.chat.toString()).emit('message-received', message);
 
