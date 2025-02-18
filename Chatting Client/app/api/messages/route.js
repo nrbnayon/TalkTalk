@@ -1,16 +1,16 @@
 // app/api/messages/route.js
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-const API_BASE_URL = 
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api/v1";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api/v1';
 
 async function fetchWithAuth(url, options = {}) {
   const cookieStore = await cookies();
-  const token =  cookieStore.get("accessToken")?.value;
+  const token = cookieStore.get('accessToken')?.value;
 
   if (!token) {
-    throw new Error("No authentication token found");
+    throw new Error('No authentication token found');
   }
 
   const headers = {
@@ -25,9 +25,11 @@ async function fetchWithAuth(url, options = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({
-      message: "An error occurred while fetching the data.",
+      message: 'An error occurred while fetching the data.',
     }));
-    throw new Error(errorData.message || "An error occurred while fetching the data.");
+    throw new Error(
+      errorData.message || 'An error occurred while fetching the data.'
+    );
   }
 
   return response.json();
@@ -37,63 +39,94 @@ export async function POST(request) {
   try {
     const formData = await request.formData();
     const cookieStore = await cookies();
-    const token = await cookieStore.get("accessToken")?.value;
+    const token = cookieStore.get('accessToken')?.value;
 
     if (!token) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Extract data from FormData
-    const content = formData.get("content");
-    const chatId = formData.get("chatId");
-    const replyToId = formData.get("replyToId");
-    const files = formData.getAll("files");
-    
-    if (!content || !chatId) {
+    // Get the stringified message data and parse it
+    const messageDataString = formData.get('messageData');
+    if (!messageDataString) {
       return NextResponse.json(
-        { error: "Content and chatId are required" },
+        { error: 'Message data is required' },
         { status: 400 }
       );
     }
 
-    // Create the request body to match backend expectations
-    const apiFormData = new FormData();
-    apiFormData.append("content", content);
-    apiFormData.append("chatId", chatId);
-    
-    if (replyToId) {
-      apiFormData.append("replyToId", replyToId);
+    const messageData = JSON.parse(messageDataString);
+    const { content, chatId, replyToId } = messageData;
+
+    // Validation
+    if (!content?.trim()) {
+      return NextResponse.json(
+        { error: 'Message content is required' },
+        { status: 400 }
+      );
     }
 
-    // Handle files
-    files.forEach((file, index) => {
+    if (!chatId) {
+      return NextResponse.json(
+        { error: 'Chat ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Create new FormData for the backend
+    const apiFormData = new FormData();
+
+    // Add the message data fields individually
+    apiFormData.append('content', content.trim());
+    apiFormData.append('chatId', chatId);
+
+    if (replyToId) {
+      apiFormData.append('replyToId', replyToId);
+    }
+
+    // Add files if any
+    const files = formData.getAll('files');
+    files.forEach(file => {
       if (file instanceof File) {
-        apiFormData.append(`files`, file);
+        apiFormData.append('files', file);
       }
     });
 
+    // Log the data being sent
+    console.log('Sending to backend:', {
+      content: content.trim(),
+      chatId,
+      replyToId,
+      filesCount: files.length,
+    });
+
     const response = await fetch(`${API_BASE_URL}/messages`, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
       },
       body: apiFormData,
     });
 
+    const responseData = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to send message");
+      return NextResponse.json(
+        {
+          error: responseData.message || 'Failed to send message',
+          details: responseData.error,
+        },
+        { status: response.status }
+      );
     }
 
-    const data = await response.json();
-    return NextResponse.json({ data: data.data });
+    return NextResponse.json({ data: responseData.data });
   } catch (error) {
-    console.error("Message sending error:", error);
+    console.error('Message sending error:', error);
     return NextResponse.json(
-      { error: error.message || "Failed to send message" },
+      { error: 'Internal server error while sending message' },
       { status: 500 }
     );
   }
@@ -102,12 +135,12 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const query = searchParams.get("query");
-    const chatId = searchParams.get("chatId");
+    const query = searchParams.get('query');
+    const chatId = searchParams.get('chatId');
 
     if (!chatId) {
       return NextResponse.json(
-        { error: "ChatId is required" },
+        { error: 'ChatId is required' },
         { status: 400 }
       );
     }
@@ -121,7 +154,7 @@ export async function GET(request) {
     return NextResponse.json({ data: data.data });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Failed to fetch messages" },
+      { error: error.message || 'Failed to fetch messages' },
       { status: 500 }
     );
   }
@@ -134,15 +167,15 @@ export async function PATCH(request) {
 
     if (!messageId || !content) {
       return NextResponse.json(
-        { error: "MessageId and content are required" },
+        { error: 'MessageId and content are required' },
         { status: 400 }
       );
     }
 
     const data = await fetchWithAuth(`/messages/${messageId}/edit`, {
-      method: "PATCH",
+      method: 'PATCH',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ content }),
     });
@@ -150,7 +183,7 @@ export async function PATCH(request) {
     return NextResponse.json({ data: data.data });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Failed to edit message" },
+      { error: error.message || 'Failed to edit message' },
       { status: 500 }
     );
   }

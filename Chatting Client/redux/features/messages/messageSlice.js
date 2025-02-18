@@ -25,20 +25,16 @@ export const sendMessage = createAsyncThunk(
   'messages/sendMessage',
   async (messageData, { rejectWithValue }) => {
     try {
-      console.log('[messageSlice] Sending message with FormData');
+      console.log('[messageSlice] Sending message with FormData', messageData);
 
       // Create FormData from the messageData using the helper
-      const formData = prepareMessageFormData(messageData);
 
       const response = await fetch('/api/messages', {
         method: 'POST',
-        body: formData,
+        body: messageData,
       });
 
-      console.log(
-        '[messageSlice] Send message response status:',
-        response.status
-      );
+      console.log('[messageSlice] Send message response status:', response);
       const data = await response.json();
       console.log('[messageSlice] Send message response:', data);
 

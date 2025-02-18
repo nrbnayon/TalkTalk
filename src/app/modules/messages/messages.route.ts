@@ -5,13 +5,15 @@ import auth from '../../middlewares/auth';
 import validateRequest from '../../middlewares/validateRequest';
 import { MessageController } from './messages.controller';
 import { MessageValidation } from './messages.validation';
-
+import multer from 'multer';
+const upload = multer();
 const router = express.Router();
 
 router.post(
   '/',
   auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
-  validateRequest(MessageValidation.sendMessageZodSchema),
+  upload.array('files'),
+  // validateRequest(MessageValidation.sendMessageZodSchema),
   MessageController.sendMessage
 );
 

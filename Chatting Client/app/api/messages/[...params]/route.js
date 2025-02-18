@@ -36,40 +36,33 @@ async function fetchWithAuth(url, options = {}) {
 }
 
 // Handle all message routes with dynamic parameters
+// 2. Update the API route in app/api/messages/[...params]/route.js:
+
 export async function GET(request, { params }) {
-  const pathSegments = await Promise.resolve(params.params);
+  try {
+    const pathSegments = Array.isArray(params?.params) ? params.params : [];
 
-  // Handle chat messages: /api/messages/{chatId}
-  if (pathSegments.length === 1) {
-    const chatId = pathSegments[0];
-
-    try {
+    // Handle chat messages: /api/messages/{chatId}
+    if (pathSegments.length === 1) {
+      const chatId = pathSegments[0];
       const data = await fetchWithAuth(`/messages/${chatId}`);
       return NextResponse.json({ data: data.data });
-    } catch (error) {
-      return NextResponse.json(
-        { error: error.message || 'Failed to fetch messages' },
-        { status: 500 }
-      );
     }
-  }
 
-  // Handle unseen message count: /api/messages/{chatId}/unseen
-  if (pathSegments.length === 2 && pathSegments[1] === 'unseen') {
-    const chatId = pathSegments[0];
-
-    try {
+    // Handle unseen message count: /api/messages/{chatId}/unseen
+    if (pathSegments.length === 2 && pathSegments[1] === 'unseen') {
+      const chatId = pathSegments[0];
       const data = await fetchWithAuth(`/messages/${chatId}/unseen`);
       return NextResponse.json({ data: data.data });
-    } catch (error) {
-      return NextResponse.json(
-        { error: error.message || 'Failed to get unseen message count' },
-        { status: 500 }
-      );
     }
-  }
 
-  return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
+    return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch messages' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(request, { params }) {
@@ -118,7 +111,6 @@ export async function POST(request, { params }) {
 
   return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
-
 
 // Updated PATCH method with better pin toggle handling
 export async function PATCH(request, { params }) {

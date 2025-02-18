@@ -160,9 +160,17 @@ export const SocketProvider = ({ children }) => {
     [socket]
   );
 
+  // const sendMessage = useCallback(
+  //   message => {
+  //     if (socket) socket.emit('new-message', message);
+  //   },
+  //   [socket]
+  // );
   const sendMessage = useCallback(
     message => {
-      if (socket) socket.emit('new-message', message);
+      if (socket) {
+        socket.emit('new-message', message);
+      }
     },
     [socket]
   );

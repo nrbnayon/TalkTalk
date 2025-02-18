@@ -113,13 +113,29 @@ class SocketHelper {
       });
 
       // Handle new messages
+      // socket.on('new-message', (message: IMessage) => {
+      //   if (!message.chat || !message.sender) {
+      //     logger.error(colors.red('[SocketHelper] Invalid message format'));
+      //     return;
+      //   }
+
+      //   // Broadcast to all users in the chat except sender
+      //   socket.to(message.chat.toString()).emit('message-received', message);
+
+      //   logger.info(
+      //     colors.green(
+      //       `[SocketHelper] New message broadcast in chat: ${message.chat}`
+      //     )
+      //   );
+      // });
+
       socket.on('new-message', (message: IMessage) => {
         if (!message.chat || !message.sender) {
           logger.error(colors.red('[SocketHelper] Invalid message format'));
           return;
         }
 
-        // Broadcast to all users in the chat except sender
+        // Broadcast to all users in the chat except the sender
         socket.to(message.chat.toString()).emit('message-received', message);
 
         logger.info(
