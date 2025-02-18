@@ -1,9 +1,9 @@
+//components\chat\MessageInput.js
 'use client';
 
 import React from 'react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -16,6 +16,7 @@ import {
   File,
   StopCircle,
   AlertCircle,
+  Reply,
 } from 'lucide-react';
 import {
   sendMessage,
@@ -66,6 +67,31 @@ const MessageInput = ({ chatId }) => {
     stopTyping,
   } = useSocket();
   const typingTimeoutRef = useRef(null);
+
+  // Add event listeners for reply and edit
+  useEffect(() => {
+    const handleReplyTo = event => {
+      const message = event.detail;
+      setReplyingTo(message);
+    };
+
+    const handleEditMessage = event => {
+      const { content } = event.detail;
+      setEditingMessage(event.detail);
+      setMessageText(content);
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+
+    window.addEventListener('replyTo', handleReplyTo);
+    window.addEventListener('editMessage', handleEditMessage);
+
+    return () => {
+      window.removeEventListener('replyTo', handleReplyTo);
+      window.removeEventListener('editMessage', handleEditMessage);
+    };
+  }, []);
 
   useEffect(() => {
     // Auto-resize textarea
@@ -261,49 +287,48 @@ const MessageInput = ({ chatId }) => {
   const handleSendMessage = useCallback(
     async e => {
       e.preventDefault();
-      console.log('Sending message...');
 
       if (!messageText.trim() && files.length === 0) {
-        console.log('No content to send');
         return;
       }
 
       try {
         if (editingMessage) {
-          console.log('Editing message:', editingMessage);
-          dispatch(updateMessage({ ...editingMessage, content: messageText }));
+          dispatch(
+            updateMessage({
+              messageId: editingMessage.id,
+              chatId: editingMessage.chatId,
+              content: messageText,
+            })
+          );
           setEditingMessage(null);
         } else {
-          const formData = new FormData();
-          formData.append('content', messageText);
-          formData.append('chatId', chatId);
-
-          if (replyingTo) {
-            formData.append('replyTo', replyingTo._id);
-          }
-
-          files.forEach((fileObj, index) => {
-            formData.append(`files`, fileObj.file);
-            console.log(`Appending file ${index}:`, fileObj.file.name);
-          });
-
+          // Prepare message data
           const messageData = {
+            content: messageText,
+            chatId,
+            replyToId: replyingTo?._id,
+            files: files.map(f => f.file),
+          };
+
+          // Send via socket
+          await socketSendMessage({
             chatId,
             content: messageText,
             files: files.map(f => f.file.name),
-          };
+            replyTo: replyingTo?._id,
+          });
 
-          await socketSendMessage(messageData);
-          dispatch(sendMessage(formData));
+          // Dispatch to Redux
+          await dispatch(sendMessage(messageData)).unwrap();
+
+          // Reset state
+          setMessageText('');
+          setFiles([]);
+          setReplyingTo(null);
+          setUploadProgress(0);
+          setAudioURL(null);
         }
-
-        setMessageText('');
-        setFiles([]);
-        setUploadProgress(0);
-        setReplyingTo(null);
-        setAudioURL(null);
-
-        console.log('Message sent successfully');
       } catch (error) {
         console.error('Error sending message:', error);
       }
@@ -327,6 +352,34 @@ const MessageInput = ({ chatId }) => {
 
   const handleEmojiClick = emojiObject => {
     setMessageText(prevMessage => prevMessage + emojiObject.emoji);
+  };
+
+  const ReplyPreview = () => {
+    if (!replyingTo) return null;
+
+    return (
+      <div className="px-4 py-2 border-t bg-gray-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Reply className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium">
+              Replying to {replyingTo.sender.name}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setReplyingTo(null)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <p className="text-sm text-gray-600 mt-1 line-clamp-1">
+          {replyingTo.content}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -407,8 +460,27 @@ const MessageInput = ({ chatId }) => {
         </div>
       )}
 
-      {/* Message Input Form */}
+      {/* Reply preview */}
+      <ReplyPreview />
 
+      {/* Edit indicator */}
+      {editingMessage && (
+        <div className="px-4 py-2 bg-blue-50 flex items-center justify-between">
+          <span className="text-sm text-blue-600">Editing message</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setEditingMessage(null);
+              setMessageText('');
+            }}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Message Input Form */}
       <form onSubmit={handleSendMessage} className="p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="w-[10%]">

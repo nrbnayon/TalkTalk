@@ -119,6 +119,7 @@ export async function POST(request, { params }) {
   return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
 
+
 // Updated PATCH method with better pin toggle handling
 export async function PATCH(request, { params }) {
   const pathSegments = await Promise.resolve(params.params);
@@ -131,10 +132,23 @@ export async function PATCH(request, { params }) {
     if (action === 'edit') {
       try {
         const body = await request.json();
+        const { messageId, content } = body;
+
+        if (!messageId || !content) {
+          return NextResponse.json(
+            { error: 'MessageId and content are required' },
+            { status: 400 }
+          );
+        }
+
         const data = await fetchWithAuth(`/messages/${messageId}/edit`, {
           method: 'PATCH',
-          body: JSON.stringify(body),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content }),
         });
+
         return NextResponse.json({ data: data.data });
       } catch (error) {
         return NextResponse.json(

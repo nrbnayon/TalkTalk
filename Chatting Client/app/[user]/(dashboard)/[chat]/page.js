@@ -37,8 +37,6 @@ const ChatView = () => {
 
   useEffect(() => {
     if (chatId) {
-      console.log("[ChatView] Initializing chat for ID:", chatId);
-
       const existingChat = chats.find((chat) => chat._id === chatId);
 
       if (existingChat) {

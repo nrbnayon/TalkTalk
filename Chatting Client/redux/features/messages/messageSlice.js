@@ -1,4 +1,5 @@
 // // redux\features\messages\messageSlice.js
+import { prepareMessageFormData } from '@/lib/messageHelpers';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 export const fetchMessages = createAsyncThunk(
@@ -8,8 +9,6 @@ export const fetchMessages = createAsyncThunk(
       console.log('[messageSlice] Fetching messages for chat:', chatId);
       const response = await fetch(`/api/messages/${chatId}`);
       const data = await response.json();
-
-      console.log('[messageSlice] Fetch response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch messages');
@@ -24,17 +23,12 @@ export const fetchMessages = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   'messages/sendMessage',
-  async (formData, { rejectWithValue }) => {
+  async (messageData, { rejectWithValue }) => {
     try {
       console.log('[messageSlice] Sending message with FormData');
 
-      // Log FormData contents
-      for (let [key, value] of formData.entries()) {
-        console.log(
-          `[messageSlice] FormData ${key}:`,
-          value instanceof File ? `File: ${value.name}` : value
-        );
-      }
+      // Create FormData from the messageData using the helper
+      const formData = prepareMessageFormData(messageData);
 
       const response = await fetch('/api/messages', {
         method: 'POST',

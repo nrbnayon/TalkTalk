@@ -20,7 +20,8 @@ const getAllMessages = catchAsync(async (req: Request, res: Response) => {
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const { content, chatId, replyToId } = req.body;
-  const files = req.files as Express.Multer.File[]; // Add files handling
+  console.log('Get message from chat::', req.body);
+  const files = req.files as Express.Multer.File[];
 
   const result = await MessageService.sendMessage(
     req.user.id,
