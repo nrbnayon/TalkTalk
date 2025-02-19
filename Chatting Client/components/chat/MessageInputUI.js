@@ -117,7 +117,7 @@ const MessageInputUI = ({
                         />
                       </div>
                     </DialogTrigger>
-                    <DialogContent className="max-w-3xl">
+                    <DialogContent className={cn('max-w-3xl z-50 bg-gray-500')}>
                       <DialogHeader>
                         <DialogTitle>{fileObj.name}</DialogTitle>
                       </DialogHeader>
@@ -157,10 +157,10 @@ const MessageInputUI = ({
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute -top-2 -right-2 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 h-5 w-5 border-2 bg-white border-gray-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => removeFile(index)}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4  text-red-600" />
                 </Button>
               </div>
             ))}
@@ -292,11 +292,11 @@ const MessageInputUI = ({
 
       {/* Voice Recording Modal */}
       <Dialog open={showVoiceModal} onOpenChange={setShowVoiceModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={cn('sm:max-w-md z-50 bg-gray-100')}>
           <DialogHeader>
             <DialogTitle>Voice Message</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 p-4">
+          <div className="flex flex-col items-center gap-4 p-4 ">
             {isRecording ? (
               <div className="flex flex-col items-center gap-2">
                 <div className="text-red-500 animate-pulse">Recording...</div>
@@ -308,7 +308,7 @@ const MessageInputUI = ({
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-4 bg-white shadow-xl rounded-xl">
                 {audioURL ? (
                   <>
                     <audio src={audioURL} controls className="w-full" />

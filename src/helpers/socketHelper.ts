@@ -112,22 +112,6 @@ class SocketHelper {
         });
       });
 
-      // Handle new messages
-      // socket.on('new-message', (message: IMessage) => {
-      //   if (!message.chat || !message.sender) {
-      //     logger.error(colors.red('[SocketHelper] Invalid message format'));
-      //     return;
-      //   }
-
-      //   // Broadcast to all users in the chat except sender
-      //   socket.to(message.chat.toString()).emit('message-received', message);
-
-      //   logger.info(
-      //     colors.green(
-      //       `[SocketHelper] New message broadcast in chat: ${message.chat}`
-      //     )
-      //   );
-      // });
 
       socket.on('new-message', (message: IMessage) => {
         if (!message.chat || !message.sender) {
@@ -140,7 +124,7 @@ class SocketHelper {
 
         logger.info(
           colors.green(
-            `[SocketHelper] New message broadcast in chat: ${message.chat}`
+            `[SocketHelper] New message broadcast in chat: ${message}`
           )
         );
       });
@@ -309,13 +293,6 @@ class SocketHelper {
           const { messageId, chatId, emoji } = data;
           const userId = this.connectedSockets.get(socket.id);
 
-          // console.log(
-          //   'Updated message reaction in socket helper::: ',
-          //   messageId,
-          //   chatId,
-          //   emoji
-          // );
-
           if (userId) {
             try {
               const updatedMessage = await MessageService.toggleReaction(
@@ -356,12 +333,12 @@ class SocketHelper {
             }
 
             // Clear any typing timeouts for this user
-            // Array.from(this.typingUsers.entries())
-            //   .filter(([key]) => key.includes(userId))
-            //   .forEach(([key]) => {
-            //     clearTimeout(this.typingUsers.get(key));
-            //     this.typingUsers.delete(key);
-            //   });
+            Array.from(this.typingUsers.entries())
+              .filter(([key]) => key.includes(userId))
+              .forEach(([key]) => {
+                clearTimeout(this.typingUsers.get(key));
+                this.typingUsers.delete(key);
+              });
             // Remove the socket from tracking
             this.connectedSockets.delete(socket.id);
           } catch (error) {

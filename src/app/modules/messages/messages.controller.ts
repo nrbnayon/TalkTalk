@@ -5,40 +5,68 @@ import catchAsync from '../../../shared/catchAsync';
 import sendResponse from '../../../shared/sendResponse';
 import { MessageService } from './messages.service';
 import { IMessageFilters } from './messages.interface';
+import { logger } from '../../../shared/logger';
+
+const sendMessage = catchAsync(async (req: Request, res: Response) => {
+  try {
+    logger.info(`[MessageController] Sending message. Request data:`, {
+      body: req.body,
+      files: req.files ? Object.keys(req.files) : [],
+      userId: req.user?.id,
+    });
+
+    const { content, chatId, replyToId } = req.body;
+    const files = req.files as Record<string, Express.Multer.File[]>;
+
+    const result = await MessageService.sendMessage({
+      content,
+      chatId,
+      userId: req.user.id,
+      replyToId,
+      files,
+    });
+
+    logger.info(
+      `[MessageController] Message created successfully. ID: ${result._id}`
+    );
+
+    // Get the io instance from app
+    const io = req.app.get('io');
+    if (io && chatId) {
+      logger.info(
+        `[MessageController] Emitting socket event to chat: ${chatId}`
+      );
+      io.to(chatId).emit('message-received', result);
+    } else {
+      logger.warn(
+        `[MessageController] Socket or chatId not available for real-time update`
+      );
+    }
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: 'Message sent successfully',
+      data: result,
+    });
+  } catch (error) {
+    logger.error(`[MessageController] Error in sendMessage:`, error);
+    throw error;
+  }
+});
 
 const getAllMessages = catchAsync(async (req: Request, res: Response) => {
   const { chatId } = req.params;
+  logger.info(`[MessageController] Fetching messages for chat: ${chatId}`);
+
   const result = await MessageService.getAllMessages(chatId);
+
+  logger.info(`[MessageController] Retrieved ${result.length} messages`);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: 'Messages retrieved successfully',
-    data: result,
-  });
-});
-
-const sendMessage = catchAsync(async (req: Request, res: Response) => {
-  const { content, chatId, replyToId } = req.body;
-  console.log('Get message from chat::', {
-    body: req.body,
-    files: req.files,
-  });
-  const files = req.files as Express.Multer.File[];
-
-  const result = await MessageService.sendMessage(
-    req.user.id,
-    content,
-    chatId,
-    files || [], // Pass files array
-    undefined, // Default messageType
-    replyToId
-  );
-
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: 'Message sent successfully',
     data: result,
   });
 });

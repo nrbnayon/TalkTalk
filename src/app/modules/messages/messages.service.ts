@@ -4,88 +4,126 @@ import httpStatus from 'http-status';
 import ApiError from '../../../errors/ApiError';
 import { Chat } from '../chat/chat.model';
 import { Message } from './messages.model';
-import {
-  IMessage,
-  IMessageAttachment,
-  IMessageFilters,
-  MessageType,
-} from './messages.interface';
-
-const processUploadedFile = async (
-  file: Express.Multer.File
-): Promise<{
-  url: string;
-  metadata: {
-    mimeType: string;
-    size: number;
-  };
-}> => {
-  return {
-    url: `/uploads/${file.filename}`,
-    metadata: {
-      mimeType: file.mimetype,
-      size: file.size,
-    },
-  };
-};
+import { IMessage, IMessageFilters, MessageType } from './messages.interface';
+import { logger } from '../../../shared/logger';
 
 const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
-  const messages = await Message.find({ chat: chatId })
-    .populate('sender', 'name email image')
-    .populate({
-      path: 'replyTo',
-      populate: {
-        path: 'sender',
-        select: 'name image',
-      },
-    })
-    .populate('chat')
-    .populate('readBy', 'name image')
-    .sort({ createdAt: 1 });
+  try {
+    // Validate chatId (optional but recommended)
+    if (!Types.ObjectId.isValid(chatId)) {
+      throw new Error('Invalid chatId');
+    }
 
-  return messages.map(msg => msg.toObject());
+    // Fetch messages
+    const messages = await Message.find({ chat: chatId })
+      .populate('sender', 'name email image')
+      .populate({
+        path: 'replyTo',
+        populate: {
+          path: 'sender',
+          select: 'name image',
+        },
+      })
+      .populate('chat')
+      .populate('readBy', 'name image')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return messages;
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    throw new Error('Failed to fetch messages');
+  }
 };
 
-const sendMessage = async (
-  userId: string,
-  content: string,
-  chatId: string,
-  files: Express.Multer.File[] = [],
-  messageType: MessageType = MessageType.TEXT,
-  replyToId?: string
-): Promise<IMessage> => {
-  if ((!content && !files?.length) || !chatId) {
+// const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
+//   const messages = await Message.find({
+//     chat: chatId,
+//     isDeleted: false,
+//   })
+//     .populate('sender', 'name email image')
+//     .populate('replyTo')
+//     .populate('chat')
+//     .sort({ createdAt: 1 });
+
+//   return messages.map(msg => msg.toObject());
+// };
+
+const sendMessage = async ({
+  content,
+  chatId,
+  userId,
+  replyToId,
+  files,
+}: {
+  content?: string;
+  chatId: string;
+  userId: string;
+  replyToId?: string;
+  files?: Record<string, Express.Multer.File[]>;
+}): Promise<IMessage> => {
+  logger.info(`[MessageService] Creating new message for chat: ${chatId}`);
+  logger.debug(`[MessageService] Message data:`, {
+    content: content?.substring(0, 50),
+    chatId,
+    userId,
+    replyToId,
+    filesCount: files ? Object.keys(files).length : 0,
+  });
+
+  // Validation
+  if ((!content?.trim() && (!files || !Object.keys(files).length)) || !chatId) {
+    logger.error('[MessageService] Invalid message data');
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       'Message content or files required'
     );
   }
 
-  let attachments: IMessageAttachment[] = [];
+  const messageData: any = {
+    sender: userId,
+    content: content?.trim() || '',
+    chat: chatId,
+    readBy: [userId],
+  };
 
-  if (files?.length) {
-    attachments = await Promise.all(
-      files.map(async file => {
-        const processedFile = await processUploadedFile(file);
-        return {
-          url: processedFile.url,
-          type: messageType,
-          filename: file.originalname,
-          ...processedFile.metadata,
-        };
-      })
-    );
+  if (replyToId) {
+    messageData.replyTo = replyToId;
   }
 
-  const newMessage = await Message.create({
-    sender: userId,
-    content,
-    chat: chatId,
-    messageType,
-    attachments,
-    replyTo: replyToId ? new Types.ObjectId(replyToId) : undefined,
-    readBy: [userId],
-  });
+  // Process attachments
+  if (files && Object.keys(files).length > 0) {
+    logger.info(
+      `[MessageService] Processing ${Object.keys(files).length} files`
+    );
+    messageData.attachments = [];
+
+    for (const [fieldName, fileArray] of Object.entries(files)) {
+      fileArray.forEach((file: Express.Multer.File) => {
+        logger.debug(`[MessageService] Processing file: ${file.originalname}`);
+        const attachment = {
+          url: `/${fieldName}/${file.filename}`,
+          type: getMessageType(fieldName, file.mimetype),
+          filename: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype,
+        };
+        messageData.attachments.push(attachment);
+      });
+    }
+
+    messageData.messageType =
+      messageData.attachments.length > 1
+        ? MessageType.MIXED
+        : messageData.attachments[0].type;
+  } else {
+    messageData.messageType = MessageType.TEXT;
+  }
+
+  logger.debug(`[MessageService] Final message data:`, messageData);
+
+  const newMessage = await Message.create(messageData);
+  logger.info(`[MessageService] Message created with ID: ${newMessage._id}`);
 
   const message = await Message.findById(newMessage._id)
     .populate('sender', 'name image')
@@ -100,15 +138,28 @@ const sendMessage = async (
     .populate('readBy', 'name image');
 
   if (!message) {
+    logger.error('[MessageService] Failed to retrieve created message');
     throw new ApiError(
       httpStatus.INTERNAL_SERVER_ERROR,
       'Failed to create message'
     );
   }
 
+  // Update chat's latest message
   await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
+  logger.info(`[MessageService] Updated latest message for chat: ${chatId}`);
 
-  return message.toObject();
+  return message;
+};
+
+const getMessageType = (fieldName: string, mimeType: string): MessageType => {
+  logger.debug(
+    `[MessageService] Determining message type for: ${fieldName}, ${mimeType}`
+  );
+  if (fieldName === 'images') return MessageType.IMAGE;
+  if (mimeType.startsWith('video/')) return MessageType.VIDEO;
+  if (mimeType.startsWith('audio/')) return MessageType.AUDIO;
+  return MessageType.DOCUMENT;
 };
 
 const editMessage = async (

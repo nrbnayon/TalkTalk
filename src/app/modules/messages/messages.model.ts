@@ -1,43 +1,6 @@
 // src/app/modules/messages/messages.model.ts
-
 import { Schema, model } from 'mongoose';
 import { IMessage, MessageType } from './messages.interface';
-
-const attachmentSchema = new Schema({
-  url: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: Object.values(MessageType),
-    required: true,
-  },
-  filename: {
-    type: String,
-    required: true,
-  },
-  size: Number,
-  mimeType: String,
-  duration: Number,
-  dimensions: {
-    width: Number,
-    height: Number,
-  },
-});
-
-const reactionSchema = new Schema({
-  emoji: {
-    type: String,
-    required: true,
-  },
-  users: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-    },
-  ],
-});
 
 const messageSchema = new Schema<IMessage>(
   {
@@ -49,7 +12,6 @@ const messageSchema = new Schema<IMessage>(
     content: {
       type: String,
       trim: true,
-      required: true,
     },
     chat: {
       type: Schema.Types.ObjectId,
@@ -68,9 +30,8 @@ const messageSchema = new Schema<IMessage>(
     },
     pinnedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Message',
+      ref: 'User',
     },
-
     isPinned: {
       type: Boolean,
       default: false,
@@ -88,17 +49,38 @@ const messageSchema = new Schema<IMessage>(
       enum: Object.values(MessageType),
       default: MessageType.TEXT,
     },
-    attachments: [attachmentSchema],
-    reactions: [reactionSchema],
-    deletedAt: {
-      type: Date,
-    },
+    attachments: [
+      {
+        url: String,
+        type: {
+          type: String,
+          enum: Object.values(MessageType),
+        },
+        filename: String,
+        size: Number,
+        mimeType: String,
+        duration: Number,
+        dimensions: {
+          width: Number,
+          height: Number,
+        },
+      },
+    ],
+    reactions: [
+      {
+        emoji: String,
+        users: [
+          {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+          },
+        ],
+      },
+    ],
+    deletedAt: Date,
     editHistory: [
       {
-        content: {
-          type: String,
-          required: true,
-        },
+        content: String,
         editedAt: {
           type: Date,
           default: Date.now,
@@ -114,7 +96,6 @@ const messageSchema = new Schema<IMessage>(
   }
 );
 
-// Index for text search
 messageSchema.index({ content: 'text' });
 
 export const Message = model<IMessage>('Message', messageSchema);

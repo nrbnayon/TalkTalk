@@ -53,8 +53,8 @@ const loginUserFromDB = async (payload: ILoginData) => {
 
   //check match password
   if (
-    password &&
-    !User.isMatchPassword(password, isExistUser.password as string)
+    !password ||
+    !(await User.isMatchPassword(password, isExistUser.password as string))
   ) {
     throw new ApiError(StatusCodes.BAD_REQUEST, 'Password is incorrect!');
   }

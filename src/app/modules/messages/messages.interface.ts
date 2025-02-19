@@ -10,6 +10,8 @@ export enum MessageType {
   VIDEO = 'video',
   STICKER = 'sticker',
   GIF = 'gif',
+  DOCUMENT = 'document',
+  MIXED = 'mixed',
 }
 
 export interface IMessageAttachment {
@@ -37,7 +39,7 @@ export interface IMessage {
   isEdited: boolean;
   isDeleted: boolean;
   messageType: MessageType;
-  attachments?: IMessageAttachment[];
+  attachments?: string[];
   reactions?: {
     emoji: string;
     users: Types.ObjectId[];

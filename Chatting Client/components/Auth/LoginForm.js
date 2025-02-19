@@ -1,56 +1,56 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Input } from "../ui/input";
-import { Card, CardHeader, CardContent, CardFooter } from "../ui/card";
-import { Label } from "../ui/label";
-import { MessageCircle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "../ui/button";
-import Image from "next/image";
-import Logo from "@/assets/icons/chat.png";
-import { GenerateSlug } from "@/utils/GenerateSlug";
-import toast from "react-hot-toast";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Input } from '../ui/input';
+import { Card, CardHeader, CardContent, CardFooter } from '../ui/card';
+import { Label } from '../ui/label';
+import { MessageCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '../ui/button';
+import Image from 'next/image';
+import Logo from '@/assets/icons/chat.png';
+import { GenerateSlug } from '@/utils/GenerateSlug';
+import toast from 'react-hot-toast';
 
 export default function LoginForm() {
   const router = useRouter();
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
+    email: '',
+    password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
   useEffect(() => {
-    const storedEmail = sessionStorage.getItem("registrationEmail");
+    const storedEmail = sessionStorage.getItem('registrationEmail');
     if (storedEmail) {
-      router.push("/otp-verify");
+      router.push('/otp-verify');
     }
   }, [router]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setIsLoading(true);
     try {
       const result = await login(formData.email, formData.password);
-      console.log("first result: ", result?.data?.data);
+      console.log('first result: ', result);
 
       const accessToken = result?.data?.data?.accessToken;
       if (result.success && accessToken) {
-        const decodedToken = JSON.parse(atob(accessToken.split(".")[1]));
+        const decodedToken = JSON.parse(atob(accessToken.split('.')[1]));
         const user = GenerateSlug(decodedToken.name);
-        console.log("Login user name and it route:: ", user);
+        console.log('Login user name and it route:: ', user);
         router.push(`welcome-${user}`);
-        toast.success("Login successful!");
+        toast.success('Login successful!');
         window.location.reload();
       } else {
-        toast.error("Login Faild! Please try again");
+        toast.error('Login Failed! Please try again');
         console.error(result.error);
       }
     } catch (error) {
-      console.error("Failed to login:", error);
+      console.error('Failed to login:', error);
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +80,7 @@ export default function LoginForm() {
                 type="email"
                 placeholder="Enter your email"
                 value={formData.email}
-                onChange={(e) =>
+                onChange={e =>
                   setFormData({ ...formData, email: e.target.value })
                 }
                 required
@@ -93,7 +93,7 @@ export default function LoginForm() {
                 type="password"
                 placeholder="Enter your password"
                 value={formData.password}
-                onChange={(e) =>
+                onChange={e =>
                   setFormData({ ...formData, password: e.target.value })
                 }
                 required
@@ -106,10 +106,10 @@ export default function LoginForm() {
               className="w-full bg-green-600 hover:bg-green-700 text-white cursor-pointer"
               disabled={isLoading}
             >
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? 'Logging in...' : 'Login'}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              Don&apos;t have an account?{' '}
               <Link
                 href="/register"
                 className="text-primary hover:underline font-medium"

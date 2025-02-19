@@ -4,52 +4,60 @@ const nextConfig = {
     remotePatterns: [
       // Cloudinary
       {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
       },
       {
-        protocol: "http",
-        hostname: "res.cloudinary.com",
+        protocol: 'http',
+        hostname: 'res.cloudinary.com',
       },
 
       // Firebase Storage
       {
-        protocol: "https",
-        hostname: "firebasestorage.googleapis.com",
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'http',
+        hostname: 'http://localhost:4000',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
       },
 
       // AWS S3
       {
-        protocol: "https",
-        hostname: "*.s3.amazonaws.com",
+        protocol: 'https',
+        hostname: '*.s3.amazonaws.com',
       },
 
       // Google Cloud Storage
       {
-        protocol: "https",
-        hostname: "storage.googleapis.com",
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
       },
 
       // Azure Blob Storage
       {
-        protocol: "https",
-        hostname: "*.blob.core.windows.net",
+        protocol: 'https',
+        hostname: '*.blob.core.windows.net',
       },
 
       // General image hosting services
       {
-        protocol: "https",
-        hostname: "i.imgur.com",
+        protocol: 'https',
+        hostname: 'i.imgur.com',
       },
       {
-        protocol: "https",
-        hostname: "cdn.discordapp.com",
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
       },
 
       // Your own domain
       {
-        protocol: "https",
-        hostname: "your-domain.com",
+        protocol: 'https',
+        hostname: 'your-domain.com',
       },
     ],
   },
