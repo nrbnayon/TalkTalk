@@ -6,15 +6,23 @@ import { Chat } from '../chat/chat.model';
 import { Message } from './messages.model';
 import { IMessage, IMessageFilters, MessageType } from './messages.interface';
 import { logger } from '../../../shared/logger';
+import { IPaginationOptions } from '../../../types/pagination';
+import { paginationHelper } from '../../../helpers/paginationHelper';
 
-const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
+const getAllMessages = async (
+  chatId: string,
+  paginationOptions: IPaginationOptions
+): Promise<{ meta: any; messages: IMessage[] }> => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(paginationOptions);
+
   try {
-    // Validate chatId (optional but recommended)
+    // Validate chatId
     if (!Types.ObjectId.isValid(chatId)) {
-      throw new Error('Invalid chatId');
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid chatId');
     }
 
-    // Fetch messages
+    // Fetch messages with pagination
     const messages = await Message.find({ chat: chatId })
       .populate('sender', 'name email image')
       .populate({
@@ -26,13 +34,36 @@ const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
       })
       .populate('chat')
       .populate('readBy', 'name image')
-      .sort({ createdAt: 1 })
+      .sort({ [sortBy]: sortOrder })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    return messages;
+    // Calculate total number of messages in the chat
+    const total = await Message.countDocuments({ chat: chatId });
+
+    // Calculate unread count (assuming `user.id` is available)
+    // const unreadCount = await Message.countDocuments({
+    //   chat: chatId,
+    //   readBy: { $ne: Types.ObjectId(user.id) },
+    // });
+    const unreadCount = 0;
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+        unreadCount,
+      },
+      messages: messages,
+    };
   } catch (error) {
-    console.error('Error fetching messages:', error);
-    throw new Error('Failed to fetch messages');
+    logger.error('Error fetching messages:', error);
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'Failed to fetch messages'
+    );
   }
 };
 

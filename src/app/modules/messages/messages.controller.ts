@@ -6,6 +6,8 @@ import sendResponse from '../../../shared/sendResponse';
 import { MessageService } from './messages.service';
 import { IMessageFilters } from './messages.interface';
 import { logger } from '../../../shared/logger';
+import { paginationFields } from '../notification/notification.constant';
+import pick from '../../../shared/pick';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   try {
@@ -57,9 +59,11 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 
 const getAllMessages = catchAsync(async (req: Request, res: Response) => {
   const { chatId } = req.params;
+  const paginationOptions = pick(req.query, paginationFields);
+
   logger.info(`[MessageController] Fetching messages for chat: ${chatId}`);
 
-  const result = await MessageService.getAllMessages(chatId);
+  const result = await MessageService.getAllMessages(chatId, paginationOptions);
 
   logger.info(`[MessageController] Retrieved ${result.length} messages`);
 
