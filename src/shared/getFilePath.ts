@@ -1,5 +1,5 @@
 // src/shared/getFilePath.ts
-type IFolderName = 'image' | 'media' | 'doc' | 'images' | 'medias' | 'docs';
+type IFolderName = 'image' | 'media' | 'doc' | 'images' | 'media' | 'docs';
 
 export const getFilePathMultiple = (
   files: any,

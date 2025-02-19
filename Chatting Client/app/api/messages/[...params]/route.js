@@ -168,7 +168,6 @@ export async function PATCH(request, { params }) {
           body: JSON.stringify({ chatId }),
         });
 
-        console.log('Pin toggle response:', data);
         return NextResponse.json({ data: data.data });
       } catch (error) {
         console.error('Pin toggle error:', error);

@@ -11,12 +11,10 @@ import {
   ImageIcon,
   Smile,
   X,
-  File,
   StopCircle,
   AlertCircle,
   Reply,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import EmojiPicker from 'emoji-picker-react';
 import {
   Dialog,
@@ -101,10 +99,10 @@ const MessageInputUI = ({
 
       {/* File Previews */}
       {files.length > 0 && (
-        <div className="p-2 border-b">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="px-4 py-1 border-b">
+          <div className="flex gap-2 overflow-x-auto">
             {files.map((fileObj, index) => (
-              <div key={index} className="relative group min-w-[100px]">
+              <div key={index} className="relative group min-w-24">
                 {fileObj.type === 'image' ? (
                   <Dialog>
                     <DialogTrigger>
@@ -112,22 +110,26 @@ const MessageInputUI = ({
                         <Image
                           src={fileObj.preview}
                           alt={fileObj.name}
-                          fill
+                          width={100}
+                          height={100}
+                          priority
                           className="object-cover"
                         />
                       </div>
                     </DialogTrigger>
-                    <DialogContent className={cn('max-w-3xl z-50 bg-gray-500')}>
-                      <DialogHeader>
+                    <DialogContent className="max-w-3xl bg-white p-4">
+                      <DialogHeader className="border-b border-gray-200 p-4">
                         <DialogTitle>{fileObj.name}</DialogTitle>
                       </DialogHeader>
-                      <Image
-                        src={fileObj.preview}
-                        alt={fileObj.name}
-                        width={800}
-                        height={600}
-                        className="object-contain"
-                      />
+                      <div className="bg-gray-200 flex items-center justify-center rounded-lg shadow-md">
+                        <Image
+                          src={fileObj.preview}
+                          alt={fileObj.name}
+                          width={800}
+                          height={500}
+                          className="object-contain"
+                        />
+                      </div>
                     </DialogContent>
                   </Dialog>
                 ) : fileObj.type === 'audio' ? (
@@ -157,10 +159,10 @@ const MessageInputUI = ({
                 <Button
                   variant="destructive"
                   size="icon"
-                  className="absolute top-0 right-0 h-5 w-5 border-2 bg-white border-gray-300 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 border hover:border-2 border-red-400 rounded-full hover:bg-gray-100 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => removeFile(index)}
                 >
-                  <X className="h-4 w-4  text-red-600" />
+                  <X className="h-3 w-3 text-red-500" />
                 </Button>
               </div>
             ))}
@@ -191,7 +193,7 @@ const MessageInputUI = ({
       {/* Message Input Form */}
       <form onSubmit={handleSendMessage} className="p-4">
         <div className="flex items-center justify-between gap-2">
-          <div className="w-[10%]">
+          <div className="w-[5%]">
             <input
               type="file"
               onClick={() => fileInputRef.current?.click()}
@@ -221,12 +223,12 @@ const MessageInputUI = ({
               placeholder={
                 editingMessage ? 'Edit your message...' : 'Type a message...'
               }
-              className="min-h-[40px] max-h-[150px] resize-none w-full"
+              className="min-h-10 max-h-[150px] resize-none w-full"
               rows={1}
             />
           </div>
 
-          <div className="md:w-[20%] flex justify-between items-center relative">
+          <div className="w-[20%] flex justify-between items-center relative">
             <Button
               type="button"
               variant="ghost"
@@ -292,11 +294,11 @@ const MessageInputUI = ({
 
       {/* Voice Recording Modal */}
       <Dialog open={showVoiceModal} onOpenChange={setShowVoiceModal}>
-        <DialogContent className={cn('sm:max-w-md z-50 bg-gray-100')}>
+        <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
             <DialogTitle>Voice Message</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center gap-4 p-4 ">
+          <div className="flex flex-col items-center gap-4 p-4">
             {isRecording ? (
               <div className="flex flex-col items-center gap-2">
                 <div className="text-red-500 animate-pulse">Recording...</div>
@@ -308,7 +310,7 @@ const MessageInputUI = ({
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-4 bg-white shadow-xl rounded-xl">
+              <div className="flex flex-col items-center gap-4">
                 {audioURL ? (
                   <>
                     <audio src={audioURL} controls className="w-full" />

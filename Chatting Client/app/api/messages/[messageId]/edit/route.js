@@ -7,10 +7,9 @@ const API_BASE_URL =
 
 export async function PATCH(request, { params }) {
   try {
-    console.log('[API] Processing message edit request');
     const { messageId } = params;
 
-    const data = await request.json(); // Changed from formData to json
+    const data = await request.json();
     const cookieStore = await cookies();
     const token = cookieStore.get('accessToken')?.value;
 

@@ -30,7 +30,7 @@ const fileUploadHandler = () => {
           uploadDir = path.join(baseUploadDir, 'images');
           break;
         case 'media':
-          uploadDir = path.join(baseUploadDir, 'medias');
+          uploadDir = path.join(baseUploadDir, 'media');
           break;
         case 'doc':
           uploadDir = path.join(baseUploadDir, 'docs');
@@ -77,13 +77,18 @@ const fileUploadHandler = () => {
           );
         }
       } else if (file.fieldname === 'media') {
-        if (file.mimetype === 'video/mp4' || file.mimetype === 'audio/mpeg') {
+        if (
+          file.mimetype === 'video/mp4' ||
+          file.mimetype === 'audio/mpeg' ||
+          file.mimetype === 'audio/mp3' ||
+          file.mimetype === 'audio/webm'
+        ) {
           cb(null, true);
         } else {
           cb(
             new ApiError(
               StatusCodes.BAD_REQUEST,
-              'Only .mp4, .mp3 files are supported'
+              'Only .mp4, .mp3, .webm files are supported'
             )
           );
         }

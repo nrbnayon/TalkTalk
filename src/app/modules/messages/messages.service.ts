@@ -100,7 +100,9 @@ const sendMessage = async ({
 
     for (const [fieldName, fileArray] of Object.entries(files)) {
       fileArray.forEach((file: Express.Multer.File) => {
-        logger.debug(`[MessageService] Processing file: ${file.originalname}`);
+        console.log(`[MessageService] Processing file: ${file.originalname}`, {
+          file: file,
+        });
         const attachment = {
           url: `/${fieldName}/${file.filename}`,
           type: getMessageType(fieldName, file.mimetype),

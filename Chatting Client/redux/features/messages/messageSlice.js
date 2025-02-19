@@ -25,7 +25,7 @@ export const sendMessage = createAsyncThunk(
   'messages/sendMessage',
   async ({ formData, socket }, { rejectWithValue }) => {
     try {
-      console.log('[messageSlice] Preparing to send message');
+      console.log('[messageSlice] Preparing to send message', formData);
 
       // Log FormData contents
       const formDataEntries = {};

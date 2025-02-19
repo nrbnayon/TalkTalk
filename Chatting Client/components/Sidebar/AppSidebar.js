@@ -55,14 +55,14 @@ const AppSidebar = () => {
 
   const userName = GenerateSlug(user?.name);
 
-  // console.log(
-  //   "Get Login user in AppSidebar",
-  //   user,
-  //   "My All chats:",
-  //   chats,
-  //   "Select for chat:",
-  //   selectedChat
-  // );
+  console.log(
+    'Get Login user in AppSidebar',
+    user,
+    'My All chats:',
+    chats,
+    'Select for chat:',
+    selectedChat
+  );
 
   useEffect(() => {
     if (user) {
@@ -96,7 +96,6 @@ const AppSidebar = () => {
         );
         break;
       case 'pinned':
-        // filtered = filtered.filter((chat) => chat.isPinned);
         filtered = filtered.map(chat => ({
           ...chat,
           isPinned: chat.pinnedBy?.includes(user?._id),
@@ -164,8 +163,6 @@ const AppSidebar = () => {
 
     const chatToToggle = chats.find(chat => chat._id === chatId);
     const isPinned = chatToToggle.pinnedBy?.includes(user?._id);
-
-    // If we're unpinning, always allow it
     if (isPinned) {
       dispatch(updateChatPin({ chatId, action: 'pin' }));
       return;
@@ -200,9 +197,9 @@ const AppSidebar = () => {
     return (
       <div
         key={chat._id}
-        className={`group relative flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+        className={`group relative flex items-center gap-3 p-3 transition-all duration-200 ${
           selectedChat?._id === chat._id
-            ? 'bg-blue-50 hover:bg-blue-100'
+            ? 'bg-blue-100 hover:bg-blue-100'
             : 'hover:bg-gray-50'
         } ${chat.isPinned ? 'bg-blue-50' : ''}`}
       >
@@ -231,7 +228,7 @@ const AppSidebar = () => {
             {/* Show block icon at top left */}
             {chat.isBlocked && (
               <ShieldBan
-                className="absolute -top-1 -left-1 h-4 w-4 text-red-500"
+                className="absolute -bottom-1 -right-1 h-4 w-4 text-red-500"
                 fill="currentColor"
               />
             )}

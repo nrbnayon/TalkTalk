@@ -35,13 +35,11 @@ export default function LoginForm() {
     setIsLoading(true);
     try {
       const result = await login(formData.email, formData.password);
-      console.log('first result: ', result);
 
       const accessToken = result?.data?.data?.accessToken;
       if (result.success && accessToken) {
         const decodedToken = JSON.parse(atob(accessToken.split('.')[1]));
         const user = GenerateSlug(decodedToken.name);
-        console.log('Login user name and it route:: ', user);
         router.push(`welcome-${user}`);
         toast.success('Login successful!');
         window.location.reload();

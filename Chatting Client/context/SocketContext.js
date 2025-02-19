@@ -159,11 +159,14 @@ export const SocketProvider = ({ children }) => {
     },
     [socket]
   );
-  
+
   const sendMessage = useCallback(
     message => {
       if (socket) {
-        console.log('[SocketContext] Emitting new message:', message._id);
+        console.log(
+          '[SocketContext] Sending new message from frontend::',
+          message
+        );
         socket.emit('new-message', message);
       }
     },

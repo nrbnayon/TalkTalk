@@ -1,4 +1,5 @@
 'use client';
+import React, { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import {
   Dialog,
@@ -18,7 +19,7 @@ import {
   Music,
   X,
   FileText,
-  FilePdf,
+  FileDown,
   FileCode,
   FileJson,
   FileSpreadsheet,
@@ -27,19 +28,80 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { Slider } from '../ui/slider';
 
 const MessageAttachment = ({ attachment }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const audioRef = useRef(null);
 
   const getFullUrl = url => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
+    if (url.startsWith('https')) return url;
     if (url.startsWith('blob:')) return url;
     return `http://localhost:4000${url}`;
   };
 
   const fullUrl = getFullUrl(attachment.url);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      const audio = audioRef.current;
+
+      const onLoadedMetadata = () => {
+        setDuration(audio.duration);
+        setIsLoaded(true);
+      };
+
+      const onTimeUpdate = () => {
+        setCurrentTime(audio.currentTime);
+      };
+
+      const onEnded = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      };
+
+      audio.addEventListener('loadedmetadata', onLoadedMetadata);
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('ended', onEnded);
+
+      return () => {
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audio.removeEventListener('timeupdate', onTimeUpdate);
+        audio.removeEventListener('ended', onEnded);
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const formatTime = time => {
+    if (!isLoaded || isNaN(time) || !isFinite(time)) return '--:--';
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const downloadFile = async () => {
     try {
@@ -62,7 +124,6 @@ const MessageAttachment = ({ attachment }) => {
       }, 100);
     } catch (error) {
       console.error('Download failed:', error);
-      // You could add toast notification here
     }
   };
 
@@ -101,7 +162,7 @@ const MessageAttachment = ({ attachment }) => {
 
       // Documents
       pdf: {
-        icon: <FilePdf className="h-6 w-6" />,
+        icon: <FileDown className="h-6 w-6" />,
         color: 'bg-red-100 text-red-600',
       },
       doc: {
@@ -195,6 +256,75 @@ const MessageAttachment = ({ attachment }) => {
     };
   };
 
+  const renderAudioPlayer = () => {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-4 transition-all duration-300 hover:shadow-lg">
+        <div className="flex items-center gap-4 relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-12 w-12 rounded-full transition-all duration-300 absolute z-10',
+              'bg-blue-100 text-blue-600 hover:bg-blue-200'
+            )}
+            onClick={togglePlay}
+          >
+            {isPlaying ? (
+              <Pause className="h-6 w-6" />
+            ) : (
+              <Play className="h-6 w-6" />
+            )}
+          </Button>
+          <div className="flex-1 min-w-0 hidden">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium text-gray-700">
+                {attachment.filename}
+              </p>
+              <span className="text-xs text-gray-500">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all"
+                style={{
+                  width: `${(currentTime / duration) * 100 || 0}%`,
+                }}
+              />
+            </div>
+          </div>
+          <div className=" items-center gap-2 text-black hidden">
+            <Volume2 className="h-5 w-5 text-gray-400" />
+            <Slider
+              min={0}
+              max={1}
+              step={0.1}
+              value={[volume]}
+              onValueChange={([value]) => setVolume(value)}
+              className="w-24"
+            />
+          </div>
+          <audio
+            ref={audioRef}
+            src={fullUrl}
+            controls
+            preload="metadata"
+            // className="hidden"
+            className="min-w-52"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadFile}
+            className="ml-2"
+          >
+            <Download className="h-4 w-4 text-black" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderPreview = () => {
     const type = attachment.type?.toLowerCase();
     const fileDetails = getFileTypeDetails(attachment.filename, type);
@@ -202,18 +332,16 @@ const MessageAttachment = ({ attachment }) => {
     if (type === 'image') {
       return (
         <div className="group relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-white transition-all duration-300 hover:shadow-lg">
-          <div
-            onClick={() => setIsOpen(true)}
-            className="relative h-[240px] w-full"
-          >
+          <div onClick={() => setIsOpen(true)} className="relative w-48 h-44">
             <Image
               src={fullUrl || '/placeholder.svg'}
-              alt={attachment.filename}
-              fill
+              alt={attachment?.filename || 'Image'}
+              width={200}
+              height={176}
               priority
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover"
             />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black/50 opacity-0 backdrop-blur-sm transition-opacity hover:opacity-100">
               <div className="flex flex-col items-center gap-2">
                 <Download className="h-8 w-8 text-white" />
                 <span className="text-sm font-medium text-white">Preview</span>
@@ -221,11 +349,11 @@ const MessageAttachment = ({ attachment }) => {
             </div>
           </div>
           <div className="border-t border-gray-200 bg-white p-3">
-            <p className="truncate text-sm font-medium text-gray-700">
+            {/* <p className="truncate text-sm font-medium text-gray-700">
               {attachment.filename}
-            </p>
+            </p> */}
             <p className="text-xs text-gray-500">
-              {formatFileSize(attachment.size)}
+              Size: {formatFileSize(attachment?.size)}
             </p>
           </div>
         </div>
@@ -258,6 +386,9 @@ const MessageAttachment = ({ attachment }) => {
           </div>
         </div>
       );
+    }
+    if (type === 'audio') {
+      return renderAudioPlayer();
     }
 
     if (type === 'audio') {
@@ -404,24 +535,21 @@ const MessageAttachment = ({ attachment }) => {
                 <Button
                   onClick={downloadFile}
                   size="sm"
-                  className="gap-2 bg-blue-500 text-white hover:bg-blue-600"
+                  className="gap-2 bg-blue-500 text-white hover:bg-blue-600 mr-8"
                 >
                   <Download className="h-4 w-4" />
                   Download
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-full hover:bg-gray-100"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
               </div>
             </DialogTitle>
           </DialogHeader>
+          <div className="p-6">
+            {attachment.type === 'audio'
+              ? renderAudioPlayer()
+              : renderPreviewContent()}
+          </div>
 
-          <div className="p-6">{renderPreviewContent()}</div>
+          {/* <div className="p-6">{renderPreviewContent()}</div> */}
         </DialogContent>
       </Dialog>
     </>
@@ -429,237 +557,3 @@ const MessageAttachment = ({ attachment }) => {
 };
 
 export default MessageAttachment;
-// 'use client';
-// import { useState } from 'react';
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-// } from '@/components/ui/dialog';
-// import { Button } from '@/components/ui/button';
-// import {
-//   Download,
-//   Play,
-//   Pause,
-//   Volume2,
-//   File,
-//   ImageIcon,
-//   Video,
-//   Music,
-// } from 'lucide-react';
-// import { cn } from '@/lib/utils';
-// import Image from 'next/image';
-
-// const MessageAttachment = ({ attachment }) => {
-//   const [isOpen, setIsOpen] = useState(false);
-//   const [isPlaying, setIsPlaying] = useState(false);
-
-//   const getFullUrl = url => {
-//     if (!url) return '';
-//     if (url.startsWith('http')) return url;
-//     if (url.startsWith('blob:')) return url;
-//     return `http://localhost:4000${url}`;
-//   };
-
-//   const fullUrl = getFullUrl(attachment.url);
-
-//   const downloadFile = () => {
-//     // Create a temporary anchor element to trigger the download
-//     const anchor = document.createElement('a');
-//     anchor.href = fullUrl;
-//     anchor.download = attachment.filename;
-//     anchor.click();
-//   };
-
-//   const formatFileSize = bytes => {
-//     if (bytes === 0) return '0 Bytes';
-//     const k = 1024;
-//     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-//     const i = Math.floor(Math.log(bytes) / Math.log(k));
-//     return (
-//       Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-//     );
-//   };
-
-//   const getFileIcon = type => {
-//     switch (type?.toLowerCase()) {
-//       case 'image':
-//         return <ImageIcon className="h-6 w-6" />;
-//       case 'video':
-//         return <Video className="h-6 w-6" />;
-//       case 'audio':
-//         return <Music className="h-6 w-6" />;
-//       default:
-//         return <File className="h-6 w-6" />;
-//     }
-//   };
-
-//   const renderPreview = () => {
-//     const type = attachment.type?.toLowerCase();
-
-//     if (type === 'image') {
-//       return (
-//         <div
-//           className="group relative cursor-pointer overflow-hidden rounded-lg"
-//           onClick={() => setIsOpen(true)}
-//         >
-//           <Image
-//             src={fullUrl || '/placeholder.svg'}
-//             alt={attachment.filename}
-//             width={240}
-//             height={240}
-//             priority
-//             className="w-full h-[240px] object-cover transition-transform group-hover:scale-105"
-//           />
-//           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-//             <Download className="w-8 h-8 text-white" />
-//           </div>
-//         </div>
-//       );
-//     }
-
-//     if (type === 'video') {
-//       return (
-//         <div
-//           className="relative w-[240px] h-[180px] bg-gray-900 rounded-lg cursor-pointer overflow-hidden"
-//           onClick={() => setIsOpen(true)}
-//         >
-//           <video
-//             className="w-full h-full object-cover"
-//             src={fullUrl}
-//             onClick={e => e.stopPropagation()}
-//           />
-//           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-//             <Play className="w-12 h-12 text-white" />
-//           </div>
-//         </div>
-//       );
-//     }
-
-//     if (type === 'audio') {
-//       return (
-//         <div className="bg-gray-100 p-4 rounded-lg flex items-center gap-4 max-w-[280px] text-black">
-//           <Button
-//             variant="ghost"
-//             size="icon"
-//             className="h-10 w-10 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-//             onClick={() => setIsPlaying(!isPlaying)}
-//           >
-//             {isPlaying ? (
-//               <Pause className="h-5 w-5" />
-//             ) : (
-//               <Play className="h-5 w-5" />
-//             )}
-//           </Button>
-//           <div className="flex-1">
-//             <div className="text-sm font-medium truncate text-black">
-//               {attachment.filename}
-//             </div>
-//             <div className="text-xs text-gray-500 mt-1">
-//               {formatFileSize(attachment.size)}
-//             </div>
-//           </div>
-//           <Volume2 className="h-5 w-5 text-gray-500" />
-//         </div>
-//       );
-//     }
-
-//     // Default file preview
-//     return (
-//       <div
-//         className="bg-gray-100 p-4 rounded-lg flex items-center gap-2 max-w-[280px] cursor-pointer hover:bg-gray-200 transition-colors text-black"
-//         onClick={() => setIsOpen(true)}
-//       >
-//         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-black">
-//           {getFileIcon(type)}
-//         </div>
-//         <div className="flex-1">
-//           <div className="text-sm font-medium truncate">
-//             {attachment.filename}
-//           </div>
-//           <div className="text-xs text-gray-500 mt-1">
-//             {formatFileSize(attachment.size)}
-//           </div>
-//         </div>
-//       </div>
-//     );
-//   };
-
-//   return (
-//     <>
-//       {renderPreview()}
-
-//       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-//         <DialogContent className={cn('max-w-4xl z-50 bg-white')}>
-//           <DialogHeader>
-//             <DialogTitle className="flex items-center justify-between mt-5">
-//               <div className="flex items-center gap-3">
-//                 {getFileIcon(attachment.type)}
-//                 <span className="truncate">{attachment.filename}</span>
-//               </div>
-//               <Button
-//                 onClick={downloadFile}
-//                 variant="outline"
-//                 size="sm"
-//                 className="mr-10 hover:border-2 border-green-400"
-//               >
-//                 <Download className="h-4 w-4" />
-//                 Download
-//               </Button>
-//             </DialogTitle>
-//           </DialogHeader>
-
-//           <div
-//             className={cn(
-//               'mt-6',
-//               attachment.type === 'image' && 'flex items-center justify-center'
-//             )}
-//           >
-//             {attachment.type?.toLowerCase() === 'image' && (
-//               <Image
-//                 src={fullUrl || '/placeholder.svg'}
-//                 alt={attachment.filename}
-//                 width={800}
-//                 height={600}
-//                 priority
-//                 className="max-h-[70vh] w-auto object-contain rounded-lg shadow-lg"
-//               />
-//             )}
-//             {attachment.type?.toLowerCase() === 'video' && (
-//               <video
-//                 src={fullUrl}
-//                 controls
-//                 className="w-full rounded-lg shadow-lg"
-//               />
-//             )}
-//             {attachment.type?.toLowerCase() === 'audio' && (
-//               <div className="w-full bg-gray-100 p-6 rounded-lg shadow-inner">
-//                 <audio src={fullUrl} controls className="w-full" />
-//               </div>
-//             )}
-//             {!['image', 'video', 'audio'].includes(
-//               attachment.type?.toLowerCase()
-//             ) && (
-//               <div className="flex flex-col items-center justify-center gap-6 py-12 bg-gray-100 rounded-lg text-black">
-//                 <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-black">
-//                   {getFileIcon(attachment.type)}
-//                 </div>
-//                 <div className="text-center">
-//                   <p className="text-xl font-medium text-black">
-//                     {attachment.filename}
-//                   </p>
-//                   <p className="text-sm text-gray-500 mt-2">
-//                     {formatFileSize(attachment.size)}
-//                   </p>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-//         </DialogContent>
-//       </Dialog>
-//     </>
-//   );
-// };
-
-// export default MessageAttachment;

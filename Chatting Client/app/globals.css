@@ -39,3 +39,37 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
+
+@layer components {
+  .welcome-card {
+    @apply bg-white rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-100;
+  }
+
+  .action-button {
+    @apply px-6 py-3 rounded-full text-white font-medium transition-all duration-300 
+    hover:shadow-lg active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  .action-button-primary {
+    @apply bg-[#0078D4] hover:bg-[#106EBE];
+  }
+
+  .action-button-secondary {
+    @apply bg-[#106EBE] hover:bg-[#005A9E];
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
