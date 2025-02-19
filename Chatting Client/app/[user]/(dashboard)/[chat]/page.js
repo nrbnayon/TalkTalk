@@ -15,6 +15,8 @@ import {
   selectMessagesLoading,
   addMessage,
 } from '@/redux/features/messages/messageSlice';
+// import Lottie from 'react-lottie'; // For Lottie animations
+// import loadingAnimation from '@/assets/lottie/loading.json'; // Your loading animation JSON
 
 const ChatView = () => {
   const dispatch = useDispatch();
@@ -25,10 +27,7 @@ const ChatView = () => {
   const { chats, selectedChat } = useSelector(state => state.chat);
 
   // Memoize the messages selector to prevent unnecessary rerenders
-  const messages = useSelector(
-    state => selectMessagesByChatId(state, chatId)
-    // Add shallowEqual as second argument if needed
-  );
+  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
   const loading = useSelector(selectMessagesLoading);
 
   const otherUser = useMemo(() => {
@@ -68,8 +67,21 @@ const ChatView = () => {
 
   if (!selectedChat) {
     return (
-      <div className="flex items-center justify-center h-screen w-full">
+      <div className="flex items-center justify-center h-screen w-full bg-gray-50">
         <div className="text-center">
+          {/* <Lottie
+            options={{
+              loop: true,
+              autoplay: true,
+              animationData: loadingAnimation,
+            }}
+            height={150}
+            width={150}
+          /> */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+          </div>
           <h2 className="text-xl font-semibold mb-2">Loading chat...</h2>
           <p className="text-gray-500">
             Please wait while we load your conversation
@@ -80,7 +92,7 @@ const ChatView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden">
       <ChatHeader otherUser={otherUser} />
       <MessageArea messages={messages} currentUser={user} chatId={chatId} />
       <MessageInput chatId={chatId} />
