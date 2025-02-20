@@ -55,14 +55,14 @@ const AppSidebar = () => {
 
   const userName = GenerateSlug(user?.name);
 
-  console.log(
-    'Get Login user in AppSidebar',
-    user,
-    'My All chats:',
-    chats,
-    'Select for chat:',
-    selectedChat
-  );
+  // console.log(
+  //   'Get Login user in AppSidebar',
+  //   user,
+  //   'My All chats:',
+  //   chats,
+  //   'Select for chat:',
+  //   selectedChat
+  // );
 
   useEffect(() => {
     if (user) {

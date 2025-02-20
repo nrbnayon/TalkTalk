@@ -4,22 +4,39 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 export const fetchMessages = createAsyncThunk(
   'messages/fetchMessages',
-  async (chatId, { rejectWithValue }) => {
+  async ({ chatId, page = 1, limit = 10 }, { rejectWithValue }) => {
     try {
-      console.log('[messageSlice] Fetching messages for chat:', chatId);
-      const response = await fetch(`/api/messages/${chatId}`);
-      const data = await response.json();
+      if (!chatId) {
+        return rejectWithValue('Chat ID is required'); 
+      }
+
+      const response = await fetch(
+        `/api/messages?chatId=${chatId}&page=${page}&limit=${limit}`
+      );
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch messages');
+        const errorData = await response.json();
+        return rejectWithValue(errorData.error || 'Failed to fetch messages');
       }
-      return { chatId, messages: data.data };
+
+      const data = await response.json();
+      return {
+        chatId,
+        messages: data.data.messages || [],
+        meta: data.data.meta || {
+          total: 0,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        },
+        page,
+      };
     } catch (error) {
       console.error('[messageSlice] Error fetching messages:', error);
       return rejectWithValue(error.message);
     }
   }
 );
+
 
 export const sendMessage = createAsyncThunk(
   'messages/sendMessage',
@@ -211,6 +228,7 @@ const messageSlice = createSlice({
   name: 'messages',
   initialState: {
     messagesByChat: {},
+    meta: {},
     loading: false,
     error: null,
   },
@@ -218,42 +236,32 @@ const messageSlice = createSlice({
     addMessage: (state, action) => {
       const message = action.payload;
       const chatId = message.chat?._id || message.chat;
-      console.log('[messageSlice] Adding new message to chat:', chatId);
 
       if (!state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = [];
       }
+      // Add new message at the end for correct chronological order
       state.messagesByChat[chatId].push(message);
     },
     updateMessage: (state, action) => {
       const message = action.payload;
       const chatId = message.chat?._id || message.chat;
       const messageId = message._id;
-      console.log(
-        '[messageSlice] Updating message:',
-        messageId,
-        'in chat:',
-        chatId
-      );
 
       if (state.messagesByChat[chatId]) {
         const index = state.messagesByChat[chatId].findIndex(
           msg => msg._id === messageId
         );
         if (index !== -1) {
-          state.messagesByChat[chatId][index] = message;
+          state.messagesByChat[chatId][index] = {
+            ...state.messagesByChat[chatId][index],
+            ...message,
+          };
         }
       }
     },
     deleteMessage: (state, action) => {
       const { chatId, messageId } = action.payload;
-      console.log(
-        '[messageSlice] Deleting message:',
-        messageId,
-        'from chat:',
-        chatId
-      );
-
       if (state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = state.messagesByChat[chatId].filter(
           msg => msg._id !== messageId
@@ -262,60 +270,61 @@ const messageSlice = createSlice({
     },
     clearMessages: (state, action) => {
       const chatId = action.payload;
-      console.log('[messageSlice] Clearing all messages for chat:', chatId);
       delete state.messagesByChat[chatId];
+      delete state.meta[chatId];
     },
   },
   extraReducers: builder => {
     builder
-      // Fetch Messages
-      .addCase(fetchMessages.pending, state => {
+      .addCase(fetchMessages.pending, (state) => {
         state.loading = true;
         state.error = null;
-        console.log('[messageSlice] Fetching messages pending');
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
-        state.loading = false;
-        const { chatId, messages } = action.payload;
-        console.log(
-          '[messageSlice] Fetched messages for chat:',
-          chatId,
-          'Count:',
-          messages?.length
-        );
+        const { chatId, messages, meta, page } = action.payload;
+        
+        if (!state.messagesByChat[chatId]) {
+          state.messagesByChat[chatId] = [];
+        }
 
-        state.messagesByChat[chatId] = messages || [];
+        // Handle message ordering based on page
+        if (page === 1) {
+          // For first page, replace existing messages
+          state.messagesByChat[chatId] = [...messages].sort((a, b) => 
+            new Date(a.createdAt) - new Date(b.createdAt)
+          );
+        } else {
+          // For subsequent pages, merge and sort all messages
+          const existingMessages = state.messagesByChat[chatId];
+          const allMessages = [...messages, ...existingMessages];
+          
+          // Remove duplicates and sort by creation date
+          const uniqueMessages = Array.from(
+            new Map(allMessages.map(msg => [msg._id, msg])).values()
+          ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+          
+          state.messagesByChat[chatId] = uniqueMessages;
+        }
+
+        state.meta[chatId] = meta;
+        state.loading = false;
+        state.error = null;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
-        console.error(
-          '[messageSlice] Fetch messages rejected:',
-          action.payload
-        );
+        state.error = action.payload || 'Failed to fetch messages';
       })
-
-      // Send Message
-      .addCase(sendMessage.pending, state => {
-        state.error = null;
-        console.log('[messageSlice] Sending message pending');
-      })
+      // Keep other cases unchanged but ensure correct message ordering
       .addCase(sendMessage.fulfilled, (state, action) => {
         const message = action.payload;
         const chatId = message.chat?._id || message.chat;
-        console.log(
-          '[messageSlice] Message sent successfully to chat:',
-          chatId
-        );
 
         if (!state.messagesByChat[chatId]) {
           state.messagesByChat[chatId] = [];
         }
-        state.messagesByChat[chatId].push(message);
-      })
-      .addCase(sendMessage.rejected, (state, action) => {
-        state.error = action.payload;
-        console.error('[messageSlice] Send message rejected:', action.payload);
+        // Add new message and ensure correct order
+        state.messagesByChat[chatId] = [...state.messagesByChat[chatId], message]
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       })
 
       // Edit Message
@@ -387,9 +396,15 @@ export const { addMessage, updateMessage, deleteMessage, clearMessages } =
   messageSlice.actions;
 
 export const selectMessagesByChatId = (state, chatId) => {
-  return state.messages.messagesByChat[chatId] || [];
+  if (!chatId || !state.messages.messagesByChat[chatId]) return [];
+  return [...state.messages.messagesByChat[chatId]].sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  );
 };
+
 export const selectMessagesLoading = state => state.messages.loading;
+export const selectMessagesMeta = (state, chatId) =>
+  chatId ? state.messages.meta[chatId] : undefined;
 export const selectMessagesError = state => state.messages.error;
 
 export default messageSlice.reducer;

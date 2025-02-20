@@ -65,7 +65,9 @@ const getAllMessages = catchAsync(async (req: Request, res: Response) => {
 
   const result = await MessageService.getAllMessages(chatId, paginationOptions);
 
-  logger.info(`[MessageController] Retrieved ${result.length} messages`);
+  logger.info(
+    `[MessageController] Retrieved ${result.messages?.length} messages`
+  );
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

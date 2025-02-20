@@ -35,6 +35,7 @@ const getAllMessages = async (
       .populate('chat')
       .populate('readBy', 'name image')
       .sort({ [sortBy]: sortOrder })
+      // .sort({ createdAt: 1 })
       .skip(skip)
       .limit(limit)
       .lean();

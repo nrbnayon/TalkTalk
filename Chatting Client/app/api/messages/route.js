@@ -71,9 +71,10 @@ export async function GET(request) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const chatId = searchParams.get('chatId');
+    const page = searchParams.get('page') || 1;
+    const limit = searchParams.get('limit') || 30;
 
     if (!chatId) {
-      console.error('[API] No chatId provided');
       return NextResponse.json(
         { error: 'ChatId is required' },
         { status: 400 }
@@ -84,32 +85,41 @@ export async function GET(request) {
     const token = cookieStore.get('accessToken')?.value;
 
     if (!token) {
-      console.error('[API] No authentication token found');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    console.log(`[API] Fetching messages for chat: ${chatId}`);
-    const response = await fetch(`${API_BASE_URL}/messages/${chatId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/messages/${chatId}?page=${page}&limit=${limit}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     const data = await response.json();
-    console.log(`[API] Retrieved ${data.data?.length || 0} messages`);
 
     if (!response.ok) {
-      console.error('[API] Backend error:', data.error || data.message);
       return NextResponse.json(
         { error: data.message || 'Failed to fetch messages' },
         { status: response.status }
       );
     }
 
-    return NextResponse.json({ data: data.data });
+    // Ensure the response has the expected structure
+    return NextResponse.json({
+      data: {
+        messages: data.data.messages || [],
+        meta: data.data.meta || {
+          total: 0,
+          page: parseInt(page),
+          limit: parseInt(limit),
+        },
+      },
+    });
   } catch (error) {
     console.error('[API] Message fetch error:', error);
     return NextResponse.json(
