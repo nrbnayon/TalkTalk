@@ -60,6 +60,27 @@ class SocketHelper {
         logger.info(colors.cyan(`[SocketHelper] User joined chat: ${chatId}`));
       });
 
+      socket.on('new-message', (message: IMessage) => {
+        if (!message.chat) {
+          logger.error(colors.red('[SocketHelper] Invalid message format'));
+          return;
+        }
+
+        const chatId =
+          typeof message.chat === 'string'
+            ? message.chat
+            : message.chat.toString();
+
+        // Broadcast to the specific chat room
+        socket.to(chatId).emit('message-received', message);
+
+        logger.info(
+          colors.green(
+            `[SocketHelper] New message broadcast in chat: ${chatId}`
+          )
+        );
+      });
+
       // Handle leaving chat rooms
       socket.on('leave-chat', (chatId: string) => {
         socket.leave(chatId);
@@ -112,22 +133,21 @@ class SocketHelper {
         });
       });
 
+      // socket.on('new-message', (message: IMessage) => {
+      //   if (!message.chat || !message.sender) {
+      //     logger.error(colors.red('[SocketHelper] Invalid message format'));
+      //     return;
+      //   }
+      //   console.log('GET new message in socket::', message);
+      //   // Broadcast to all users in the chat except the sender
+      //   socket.to(message.chat.toString()).emit('message-received', message);
 
-      socket.on('new-message', (message: IMessage) => {
-        if (!message.chat || !message.sender) {
-          logger.error(colors.red('[SocketHelper] Invalid message format'));
-          return;
-        }
-        console.log('GET new message in socket::', message);
-        // Broadcast to all users in the chat except the sender
-        socket.to(message.chat.toString()).emit('message-received', message);
-
-        logger.info(
-          colors.green(
-            `[SocketHelper] New message broadcast in chat: ${message}`
-          )
-        );
-      });
+      //   logger.info(
+      //     colors.green(
+      //       `[SocketHelper] New message broadcast in chat: ${message}`
+      //     )
+      //   );
+      // });
 
       // Handle message read status
       socket.on(

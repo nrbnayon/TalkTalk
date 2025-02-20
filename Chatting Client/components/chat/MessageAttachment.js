@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -339,7 +340,7 @@ const MessageAttachment = ({ attachment }) => {
               width={500}
               height={500}
               priority
-              className="object-cover"
+              className="object-cover h-full"
             />
             <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black/50 opacity-0 backdrop-blur-sm transition-opacity hover:opacity-100">
               <div className="flex flex-col items-center gap-2">
@@ -514,6 +515,9 @@ const MessageAttachment = ({ attachment }) => {
         <DialogContent className="max-w-4xl bg-white p-0">
           <DialogHeader className="border-b border-gray-200 p-4">
             <DialogTitle className="flex items-center justify-between">
+              <DialogDescription className='hidden'>
+                This is a description of the dialog.
+              </DialogDescription>
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className={cn(

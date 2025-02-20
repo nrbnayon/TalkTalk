@@ -78,26 +78,36 @@ const MessageInput = ({ chatId }) => {
     }
   }, [messageText]);
 
+  // In MessageInput.jsx
+
   const handleTyping = useCallback(() => {
-    if (!isTyping) {
+    if (!isTyping && socket && user?.id) {
       setIsTyping(true);
-      startTyping(chatId);
+      socket.emit('typing-start', { chatId, userId: user.id });
     }
 
-    clearTimeout(typingTimeoutRef.current);
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      stopTyping(chatId);
-    }, 1000);
-  }, [chatId, isTyping, startTyping, stopTyping]);
+      if (socket && user?.id) {
+        socket.emit('typing-stop', { chatId, userId: user.id });
+      }
+    }, 3000);
+  }, [chatId, user?.id, isTyping, socket]);
 
-  const validateFile = file => {
-    if (file.size > MAX_FILE_SIZE) {
-      setFileError(`File ${file.name} exceeds 25MB limit`);
-      return false;
-    }
-    return true;
-  };
+  // Clean up typing timeout
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleFileSelect = useCallback(
     e => {

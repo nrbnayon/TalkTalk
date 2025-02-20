@@ -9,6 +9,10 @@ import {
 } from 'react';
 import { useSelector } from 'react-redux';
 import socketServiceInstance from '../services/socketService';
+import {
+  addMessage,
+  updateMessage,
+} from '@/redux/features/messages/messageSlice';
 
 const SocketContext = createContext({
   socket: null,
@@ -82,18 +86,46 @@ export const SocketProvider = ({ children }) => {
       setOnlineUsers(users);
     });
 
+    const handleNewMessage = message => {
+      console.log('[SocketContext] Received new message:', message);
+      dispatch(addMessage(message));
+    };
+
     // Typing indicators
-    socket.on('typing-update', ({ chatId, userId, isTyping }) => {
+    const handleTypingUpdate = ({ chatId, userId, isTyping }) => {
       setTypingUsers(prev => {
         const newMap = new Map(prev);
+        const key = `${chatId}-${userId}`;
         if (isTyping) {
-          newMap.set(`${chatId}-${userId}`, true);
+          newMap.set(key, true);
         } else {
-          newMap.delete(`${chatId}-${userId}`);
+          newMap.delete(key);
         }
         return newMap;
       });
-    });
+    };
+
+    const handleMessageUpdate = updatedMessage => {
+      console.log('[SocketContext] Message updated:', updatedMessage);
+      dispatch(updateMessage(updatedMessage));
+    };
+
+    socket.on('message-received', handleNewMessage);
+    socket.on('message-updated', handleMessageUpdate);
+    socket.on('typing-update', handleTypingUpdate);
+
+    // Typing indicators
+    // socket.on('typing-update', ({ chatId, userId, isTyping }) => {
+    //   setTypingUsers(prev => {
+    //     const newMap = new Map(prev);
+    //     if (isTyping) {
+    //       newMap.set(`${chatId}-${userId}`, true);
+    //     } else {
+    //       newMap.delete(`${chatId}-${userId}`);
+    //     }
+    //     return newMap;
+    //   });
+    // });
 
     // Incoming call
     socket.on('call-incoming', callSession => {
@@ -137,11 +169,13 @@ export const SocketProvider = ({ children }) => {
 
     return () => {
       socket.off('online-users-update');
-      socket.off('typing-update');
       socket.off('call-incoming');
       socket.off('call-status-update');
       socket.off('call-ended');
       socket.off('call-signal-received');
+       socket.off('message-received', handleNewMessage);
+       socket.off('message-updated', handleMessageUpdate);
+       socket.off('typing-update', handleTypingUpdate);
     };
   }, [socket, currentCall]);
 

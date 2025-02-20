@@ -211,17 +211,17 @@ const MessageList = ({
                 'px-4 py-2.5 shadow-sm',
                 message.isDeleted
                   ? 'bg-gray-400 text-gray-700 italic'
-                  : isOwnMessage
-                  ? 'bg-blue-500 text-white rounded-2xl rounded-br-sm'
-                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm'
+                  : isOwnMessage &&
+                    !(message.attachments && message.attachments.length > 0)
+                  ? 'bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tr-sm'
               )}
             >
-              {message.content && (
+              {message.content && message.content.length > 0 && (
                 <p className="whitespace-pre-wrap break-words leading-relaxed mb-2">
                   {message.content}
                 </p>
               )}
-
               {message.attachments && message.attachments.length > 0 && (
                 <div
                   className={cn(

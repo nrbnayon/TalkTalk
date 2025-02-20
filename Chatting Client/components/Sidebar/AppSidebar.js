@@ -55,6 +55,10 @@ const AppSidebar = () => {
 
   const userName = GenerateSlug(user?.name);
 
+  const isUserOnline = userId => {
+    return onlineUsers.some(onlineUser => onlineUser._id === userId);
+  };
+
   // console.log(
   //   'Get Login user in AppSidebar',
   //   user,
@@ -190,7 +194,9 @@ const AppSidebar = () => {
   const renderChatItem = chat => {
     const otherUser = chat.users.find(u => u._id !== user?._id);
     const lastMessage = chat.latestMessage;
-    const isOnline = otherUser?.onlineStatus;
+
+    const isOnline = isUserOnline(otherUser?._id) 
+
     const unreadCount =
       lastMessage && !lastMessage.readBy?.includes(user?._id) ? 1 : 0;
 
@@ -249,11 +255,17 @@ const AppSidebar = () => {
             <div className="flex items-center justify-between mt-1">
               {lastMessage?.isDeleted ? (
                 <span className="text-sm text-gray-400 italic">
-                  Message deleted
+                  Message has been deleted.
                 </span>
               ) : (
                 <p className="text-sm text-gray-600 truncate">
-                  {lastMessage?.content.substring(0, 20)}...
+                  {lastMessage?.content && lastMessage.content.trim().length > 0
+                    ? lastMessage.content.substring(0, 20) + '...'
+                    : lastMessage?.attachments?.length > 0
+                    ? 'Send ' +
+                      lastMessage.attachments[0].type.charAt(0).toUpperCase() +
+                      lastMessage.attachments[0].type.slice(1)
+                    : 'No Content'}
                 </p>
               )}
               {unreadCount > 0 && (

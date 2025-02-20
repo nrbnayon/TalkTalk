@@ -34,17 +34,17 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
 
     // Get the io instance from app
     const io = req.app.get('io');
-    if (io && chatId) {
+    if (io) {
+      // Remove the chatId check since we already have it
       logger.info(
         `[MessageController] Emitting socket event to chat: ${chatId}`
       );
       io.to(chatId).emit('message-received', result);
     } else {
       logger.warn(
-        `[MessageController] Socket or chatId not available for real-time update`
+        `[MessageController] Socket not available for real-time update`
       );
     }
-
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: true,

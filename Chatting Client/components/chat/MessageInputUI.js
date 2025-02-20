@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Image from 'next/image';
+import { DialogDescription } from '@radix-ui/react-dialog';
 
 const MessageInputUI = ({
   messageText,
@@ -120,6 +121,9 @@ const MessageInputUI = ({
                     <DialogContent className="max-w-3xl bg-white p-4">
                       <DialogHeader className="border-b border-gray-200 p-4">
                         <DialogTitle>{fileObj.name}</DialogTitle>
+                        <DialogDescription className="hidden">
+                          This is a description of the dialog.
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="bg-gray-200 flex items-center justify-center rounded-lg shadow-md">
                         <Image
@@ -297,6 +301,9 @@ const MessageInputUI = ({
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
             <DialogTitle>Voice Message</DialogTitle>
+            <DialogDescription className="hidden">
+              This is a description of the dialog.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 p-4">
             {isRecording ? (
