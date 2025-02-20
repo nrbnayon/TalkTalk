@@ -94,10 +94,18 @@ const fileUploadHandler = () => {
         }
       } else if (file.fieldname === 'doc') {
         if (
+          file.mimetype.startsWith('video/') ||
+          file.mimetype.startsWith('audio/') ||
           file.mimetype === 'application/pdf' ||
-          file.mimetype === 'application/msword' ||
+          file.mimetype === 'application/msword' || 
           file.mimetype ===
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+          file.mimetype === 'text/plain' || 
+          file.mimetype === 'application/vnd.ms-excel' || 
+          file.mimetype ===
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+          file.mimetype === 'application/zip' || 
+          file.mimetype === 'application/x-rar-compressed' ||
           file.mimetype === 'image/jpeg' ||
           file.mimetype === 'image/png' ||
           file.mimetype === 'image/webp' ||
@@ -108,7 +116,7 @@ const fileUploadHandler = () => {
           cb(
             new ApiError(
               StatusCodes.BAD_REQUEST,
-              'Only .PDF, .docx or Image .jpeg, .png, .jpg .webp files are supported'
+              'Only video, audio, PDF, DOC, DOCX, TXT, XLS, XLSX, ZIP, RAR, and image files (JPEG, PNG, JPG, WEBP) are supported'
             )
           );
         }

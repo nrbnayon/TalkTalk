@@ -1,6 +1,6 @@
 // // redux\features\messages\messageSlice.js
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 
 export const fetchMessages = createAsyncThunk(
   'messages/fetchMessages',
@@ -395,12 +395,15 @@ const messageSlice = createSlice({
 export const { addMessage, updateMessage, deleteMessage, clearMessages } =
   messageSlice.actions;
 
-export const selectMessagesByChatId = (state, chatId) => {
-  if (!chatId || !state.messages.messagesByChat[chatId]) return [];
-  return [...state.messages.messagesByChat[chatId]].sort(
-    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-  );
-};
+export const selectMessagesByChatId = createSelector(
+  [state => state.messages.messagesByChat, (state, chatId) => chatId],
+  (messagesByChat, chatId) => {
+    if (!chatId || !messagesByChat[chatId]) return [];
+    return [...messagesByChat[chatId]].sort(
+      (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+    );
+  }
+);
 
 export const selectMessagesLoading = state => state.messages.loading;
 export const selectMessagesMeta = (state, chatId) =>

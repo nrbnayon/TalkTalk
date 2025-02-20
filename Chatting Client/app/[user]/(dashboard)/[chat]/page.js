@@ -15,8 +15,8 @@ import {
   selectMessagesLoading,
   addMessage,
 } from '@/redux/features/messages/messageSlice';
-import Lottie from 'react-lottie';
-import loadingAnimation from '@/assets/lottie/loadinglottie.json';
+import { LottieLoading } from '@/components/Animations/Loading';
+import { MessagesSquare } from 'lucide-react';
 
 const ChatView = () => {
   const dispatch = useDispatch();
@@ -67,31 +67,20 @@ const ChatView = () => {
 
   if (loading) {
     <div className="text-center">
-      <Lottie
-        options={{
-          loop: true,
-          autoplay: true,
-          animationData: loadingAnimation,
-        }}
-        height={150}
-        width={150}
-      />
+      <LottieLoading />
+      <p className="text-gray-500">
+        Please wait while we load your conversation
+      </p>
     </div>;
   }
+
   if (!selectedChat) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-gray-50">
-        <div className="text-center">
-          <Lottie
-            options={{
-              loop: true,
-              autoplay: true,
-              animationData: loadingAnimation,
-            }}
-            height={200}
-            width={200}
-          />
-          <p className="text-gray-500">
+      <div className="flex flex-col items-center justify-center h-screen w-full bg-gray-50">
+        <LottieLoading />
+        <div className="flex justify-center items-center gap-2">
+          <MessagesSquare className="w-16 h-16 text-gray-300" />
+          <p className="text-gray-700">
             Please wait while we load your conversation
           </p>
         </div>

@@ -110,10 +110,10 @@ const MessageInputUI = ({
                         <Image
                           src={fileObj.preview}
                           alt={fileObj.name}
-                          width={100}
-                          height={100}
+                          width={1000}
+                          height={1000}
                           priority
-                          className="object-cover"
+                          className="object-cover h-full"
                         />
                       </div>
                     </DialogTrigger>
@@ -199,7 +199,7 @@ const MessageInputUI = ({
               onClick={() => fileInputRef.current?.click()}
               multiple
               className="hidden"
-              accept="image/*,application/pdf,.doc,.docx,.txt"
+              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar"
             />
 
             <Button

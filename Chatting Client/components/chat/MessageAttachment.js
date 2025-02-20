@@ -316,7 +316,7 @@ const MessageAttachment = ({ attachment }) => {
             variant="outline"
             size="sm"
             onClick={downloadFile}
-            className="ml-2"
+            className="ml-2 hidden"
           >
             <Download className="h-4 w-4 text-black" />
           </Button>
@@ -336,8 +336,8 @@ const MessageAttachment = ({ attachment }) => {
             <Image
               src={fullUrl || '/placeholder.svg'}
               alt={attachment?.filename || 'Image'}
-              width={200}
-              height={176}
+              width={500}
+              height={500}
               priority
               className="object-cover"
             />
@@ -349,9 +349,9 @@ const MessageAttachment = ({ attachment }) => {
             </div>
           </div>
           <div className="border-t border-gray-200 bg-white p-3">
-            {/* <p className="truncate text-sm font-medium text-gray-700">
-              {attachment.filename}
-            </p> */}
+            <p className="truncate text-sm font-medium text-gray-700">
+              {attachment.type.toUpperCase()}
+            </p>
             <p className="text-xs text-gray-500">
               Size: {formatFileSize(attachment?.size)}
             </p>
