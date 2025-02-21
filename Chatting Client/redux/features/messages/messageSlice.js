@@ -244,8 +244,12 @@ const messageSlice = createSlice({
       if (!state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = [];
       }
-      // Add new message at the end for correct chronological order
-      state.messagesByChat[chatId].push(message);
+      if (!state.messagesByChat[chatId].some(msg => msg._id === message._id)) {
+        state.messagesByChat[chatId].push(message);
+        state.messagesByChat[chatId].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+        );
+      }
     },
     updateMessage: (state, action) => {
       const message = action.payload;
@@ -277,11 +281,20 @@ const messageSlice = createSlice({
       delete state.messagesByChat[chatId];
       delete state.meta[chatId];
     },
+    resetLoadingState: state => {
+      state.loading = false;
+    },
+    markChatInitialized: (state, action) => {
+      state.initialized[action.payload] = true;
+    },
   },
   extraReducers: builder => {
     builder
-      .addCase(fetchMessages.pending, state => {
-        state.loading = true;
+      .addCase(fetchMessages.pending, (state, action) => {
+        // Only set loading true if this is the first load for this chat
+        if (!state.initialized[action.meta.arg.chatId]) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
@@ -293,25 +306,24 @@ const messageSlice = createSlice({
 
         // Handle message ordering based on page
         if (page === 1) {
-          // For first page, replace existing messages
           state.messagesByChat[chatId] = [...messages].sort(
             (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
           );
         } else {
-          // For subsequent pages, merge and sort all messages
           const existingMessages = state.messagesByChat[chatId];
-          const allMessages = [...messages, ...existingMessages];
-
-          // Remove duplicates and sort by creation date
-          const uniqueMessages = Array.from(
-            new Map(allMessages.map(msg => [msg._id, msg])).values()
-          ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-          state.messagesByChat[chatId] = uniqueMessages;
+          const newMessages = messages.filter(
+            msg =>
+              !existingMessages.some(existingMsg => existingMsg._id === msg._id)
+          );
+          state.messagesByChat[chatId] = [
+            ...existingMessages,
+            ...newMessages,
+          ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
         }
 
         state.meta[chatId] = meta;
         state.loading = false;
+        state.initialized[chatId] = true;
         state.error = null;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
@@ -327,10 +339,12 @@ const messageSlice = createSlice({
           state.messagesByChat[chatId] = [];
         }
         // Add new message and ensure correct order
-        state.messagesByChat[chatId] = [
-          ...state.messagesByChat[chatId],
-          message,
-        ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const existingMessages = state.messagesByChat[chatId];
+        if (!existingMessages.some(msg => msg._id === message._id)) {
+          state.messagesByChat[chatId] = [...existingMessages, message].sort(
+            (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+          );
+        }
       })
 
       // Edit Message

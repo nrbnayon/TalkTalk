@@ -1,20 +1,19 @@
 // app/[user]/chat/[chatId]/page.js
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams } from 'next/navigation';
 import ChatHeader from '@/components/chat/ChatHeader';
 import MessageArea from '@/components/chat/MessageArea';
 import MessageInput from '@/components/chat/MessageInput';
 import { accessChat, selectChat } from '@/redux/features/chat/chatSlice';
-import { useSocket } from '@/context/SocketContext';
 import {
   fetchMessages,
   selectMessagesByChatId,
   selectMessagesLoading,
-  addMessage,
 } from '@/redux/features/messages/messageSlice';
+import { useChatMessages } from '@/hooks/useChatMessages';
 import { LottieLoading } from '@/components/Animations/Loading';
 import { MessagesSquare } from 'lucide-react';
 
@@ -22,30 +21,21 @@ const ChatView = () => {
   const dispatch = useDispatch();
   const params = useParams();
   const chatId = params?.chat;
-  const { socket, joinChat, leaveChat } = useSocket();
   const { user } = useSelector(state => state.auth);
   const { chats, selectedChat } = useSelector(state => state.chat);
-
-  // Memoize the messages selector to prevent unnecessary rerenders
   const messages = useSelector(state => selectMessagesByChatId(state, chatId));
   const loading = useSelector(selectMessagesLoading);
 
-  const otherUser = useMemo(() => {
-    return selectedChat?.users.find(u => u._id !== user?._id);
-  }, [selectedChat?.users, user?._id]);
+  // Use the useChatMessages hook instead of manually handling socket events
+  const { sendMessage, typingUsers } = useChatMessages(chatId, messages);
 
-  useEffect(() => {
-    if (socket) {
-      console.log('Socket connected status:', socket.connected);
-      console.log('Current chat room:', chatId);
-      console.log('Current user:', user);
-    }
-  }, [socket, chatId, user]);
+  const otherUser = useMemo(() => {
+    return selectedChat?.users?.find(u => u._id !== user?._id);
+  }, [selectedChat?.users, user?._id]);
 
   useEffect(() => {
     if (chatId) {
       const existingChat = chats.find(chat => chat._id === chatId);
-
       if (existingChat) {
         dispatch(selectChat(existingChat));
       } else {
@@ -55,32 +45,15 @@ const ChatView = () => {
     }
   }, [chatId, dispatch, chats]);
 
-  useEffect(() => {
-    if (socket && chatId && user) {
-      // Join chat room
-      joinChat(chatId, user);
-
-      socket.on('message-received', newMessage => {
-        console.log('Received new message in frontend:', newMessage);
-        // Compare chat IDs as strings
-        if (newMessage.chat._id.toString() === chatId.toString()) {
-          dispatch(addMessage(newMessage));
-        }
-      });
-      return () => {
-        leaveChat(chatId);
-        socket.off('message-received');
-      };
-    }
-  }, [socket, chatId, joinChat, leaveChat, dispatch, user]);
-
   if (loading) {
-    <div className="text-center">
-      <LottieLoading />
-      <p className="text-gray-500">
-        Please wait while we load your conversation
-      </p>
-    </div>;
+    return (
+      <div className="text-center">
+        <LottieLoading />
+        <p className="text-gray-500">
+          Please wait while we load your conversation
+        </p>
+      </div>
+    );
   }
 
   if (!selectedChat) {
@@ -100,8 +73,13 @@ const ChatView = () => {
   return (
     <div className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden">
       <ChatHeader otherUser={otherUser} />
-      <MessageArea messages={messages} currentUser={user} chatId={chatId} />
-      <MessageInput chatId={chatId} />
+      <MessageArea
+        messages={messages}
+        currentUser={user}
+        chatId={chatId}
+        typingUsers={typingUsers}
+      />
+      <MessageInput chatId={chatId} sendMessage={sendMessage} />
     </div>
   );
 };

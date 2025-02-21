@@ -1,6 +1,6 @@
 // hooks/useChatMessages.js
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -22,20 +22,21 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     markMessageRead: socketMarkRead,
   } = useSocket();
 
-  // Join chat room when component mounts
+  const socketRef = useRef(null);
+
   useEffect(() => {
-    if (socket && chatId && user) {
+    socketRef.current = socket;
+
+    if (socketRef.current && chatId && user) {
       joinChat(chatId, user);
 
       const handleNewMessage = message => {
         console.log('New message received in hook:', message);
-        // Ensure we compare the correct chat ID properties
         if (message.chat._id.toString() === chatId.toString()) {
           setMessages(prev => [...prev, message]);
         }
       };
 
-      // Listen for message updates (edits, pins, reactions)
       const handleMessageUpdate = updatedMessage => {
         if (updatedMessage.chat.toString() === chatId.toString()) {
           setMessages(prev =>
@@ -47,7 +48,6 @@ export const useChatMessages = (chatId, initialMessages = []) => {
         }
       };
 
-      // Listen for message deletions
       const handleMessageDelete = data => {
         if (data.chatId === chatId) {
           setMessages(prev =>
@@ -65,7 +65,6 @@ export const useChatMessages = (chatId, initialMessages = []) => {
         }
       };
 
-      // Listen for typing status
       const handleTypingUpdate = ({ userId, isTyping }) => {
         setTypingUsers(prev => {
           const newSet = new Set(prev);
@@ -78,76 +77,80 @@ export const useChatMessages = (chatId, initialMessages = []) => {
         });
       };
 
-      socket.on('message-received', handleNewMessage);
-      socket.on('message-updated', handleMessageUpdate);
-      socket.on('message-deleted', handleMessageDelete);
-      socket.on('typing-update', handleTypingUpdate);
+      socketRef.current.on('message-received', handleNewMessage);
+      socketRef.current.on('message-updated', handleMessageUpdate);
+      socketRef.current.on('message-deleted', handleMessageDelete);
+      socketRef.current.on('typing-update', handleTypingUpdate);
 
       return () => {
+        if (socketRef.current) {
+          socketRef.current.off('message-received', handleNewMessage);
+          socketRef.current.off('message-updated', handleMessageUpdate);
+          socketRef.current.off('message-deleted', handleMessageDelete);
+          socketRef.current.off('typing-update', handleTypingUpdate);
+        }
         leaveChat(chatId);
-        socket.off('message-received', handleNewMessage);
-        socket.off('message-updated', handleMessageUpdate);
-        socket.off('message-deleted', handleMessageDelete);
-        socket.off('typing-update', handleTypingUpdate);
       };
     }
   }, [chatId, socket, joinChat, leaveChat, dispatch, user]);
 
   const sendMessage = useCallback(
     (content, replyToId = null) => {
-      const messageData = {
-        content,
-        chatId,
-        replyToId,
-      };
-      socketSendMessage(messageData);
+      if (socketRef.current) {
+        const messageData = {
+          content,
+          chatId,
+          replyToId,
+        };
+        socketRef.current.emit('new-message', messageData);
+      }
     },
-    [chatId, socketSendMessage]
+    [chatId]
   );
 
   const deleteMsg = useCallback(
     messageId => {
-      if (socket) {
-        socket.emit('delete-message', { messageId, chatId });
+      if (socketRef.current) {
+        socketRef.current.emit('delete-message', { messageId, chatId });
       }
     },
-    [socket, chatId]
+    [chatId]
   );
 
   const pinMessage = useCallback(
     messageId => {
-      if (socket) {
-        socket.emit('pin-message', { messageId, chatId });
+      if (socketRef.current) {
+        socketRef.current.emit('pin-message', { messageId, chatId });
       }
     },
-    [socket, chatId]
+    [chatId]
   );
 
   const addReaction = useCallback(
     (messageId, emoji) => {
-      if (socket) {
-        socket.emit('add-reaction', { messageId, chatId, emoji });
+      if (socketRef.current) {
+        socketRef.current.emit('add-reaction', { messageId, chatId, emoji });
       }
     },
-    [socket, chatId]
+    [chatId]
   );
 
   const startTyping = useCallback(
     userId => {
-      if (socket) {
-        socket.emit('typing-start', { chatId, userId });
+      if (socketRef.current) {
+        socketRef.current.emit('typing-start', { chatId, userId });
       }
     },
-    [socket, chatId]
+    [chatId]
   );
 
   const stopTyping = useCallback(
     userId => {
-      if (socket) {
-        socket.emit('typing-stop', { chatId, userId });
+      if (socketRef.current) {
+        socketRef.current.emit('typing-stop', { chatId, userId });
       }
     },
-    [socket, chatId]
+    [chatId]
   );
 
   return {
