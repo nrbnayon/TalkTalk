@@ -1,4 +1,4 @@
-// context/SocketContext.js
+// frontend/ context/SocketContext.js
 'use client';
 import {
   createContext,
@@ -6,12 +6,14 @@ import {
   useEffect,
   useContext,
   useCallback,
+  useRef,
 } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import socketServiceInstance from '../services/socketService';
 import {
   addMessage,
   updateMessage,
+  markMessageAsRead,
 } from '@/redux/features/messages/messageSlice';
 
 const SocketContext = createContext({
@@ -36,6 +38,7 @@ const SocketContext = createContext({
 });
 
 export const SocketProvider = ({ children }) => {
+  const dispatch = useDispatch();
   const [socket, setSocket] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Map());
@@ -45,12 +48,27 @@ export const SocketProvider = ({ children }) => {
   const { user, token } = useSelector(state => state.auth);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+  const socketRef = useRef(null);
+
   // Initialize socket connection
   useEffect(() => {
+    let isMounted = true;
     if (user && token) {
-      const newSocket = socketServiceInstance.connect(token);
-      setSocket(newSocket);
-      socketServiceInstance.setUserOnline(user._id);
+      const initializeSocket = async () => {
+        try {
+          const newSocket = await socketServiceInstance.connect(token);
+          if (isMounted) {
+            setSocket(newSocket);
+            socketRef.current = newSocket;
+            socketServiceInstance.setUserOnline(user._id);
+            console.log('[SocketContext] Socket connected:', newSocket?.id);
+          }
+        } catch (error) {
+          console.error('[SocketContext] Failed to connect socket:', error);
+        }
+      };
+
+      initializeSocket();
 
       // Fetch initial online users
       const fetchOnlineUsers = async () => {
@@ -72,27 +90,58 @@ export const SocketProvider = ({ children }) => {
       fetchOnlineUsers();
 
       return () => {
+        isMounted = false;
         socketServiceInstance.disconnect();
+        socketRef.current = null;
       };
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [apiUrl, user, token]);
 
   // Set up event listeners
   useEffect(() => {
-    if (!socket) return;
+    if (!socketRef.current) return;
+
+    const currentSocket = socketRef.current;
 
     // Online users update
-    socket.on('online-users-update', users => {
+    currentSocket.on('online-users-update', users => {
       setOnlineUsers(users);
     });
 
+    // Handle new messages
     const handleNewMessage = message => {
       console.log('[SocketContext] Received new message:', message);
       dispatch(addMessage(message));
     };
 
-    // Typing indicators
+    // Handle message updates
+    const handleMessageUpdate = updatedMessage => {
+      console.log('[SocketContext] Message updated:', updatedMessage);
+      dispatch(updateMessage(updatedMessage));
+    };
+
+    // Handle read status updates
+    const handleMessageRead = ({ messageId, userId, chatId }) => {
+      console.log(
+        '[SocketContext] Message read:',
+        messageId,
+        'by user:',
+        userId
+      );
+      dispatch(markMessageAsRead({ messageId, chatId, userId }));
+    };
+
+    // Handle typing status
     const handleTypingUpdate = ({ chatId, userId, isTyping }) => {
+      console.log('[SocketContext] Typing update:', {
+        chatId,
+        userId,
+        isTyping,
+      });
       setTypingUsers(prev => {
         const newMap = new Map(prev);
         const key = `${chatId}-${userId}`;
@@ -105,35 +154,12 @@ export const SocketProvider = ({ children }) => {
       });
     };
 
-    const handleMessageUpdate = updatedMessage => {
-      console.log('[SocketContext] Message updated:', updatedMessage);
-      dispatch(updateMessage(updatedMessage));
-    };
-
-    socket.on('message-received', handleNewMessage);
-    socket.on('message-updated', handleMessageUpdate);
-    socket.on('typing-update', handleTypingUpdate);
-
-    // Typing indicators
-    // socket.on('typing-update', ({ chatId, userId, isTyping }) => {
-    //   setTypingUsers(prev => {
-    //     const newMap = new Map(prev);
-    //     if (isTyping) {
-    //       newMap.set(`${chatId}-${userId}`, true);
-    //     } else {
-    //       newMap.delete(`${chatId}-${userId}`);
-    //     }
-    //     return newMap;
-    //   });
-    // });
-
-    // Incoming call
-    socket.on('call-incoming', callSession => {
+    // Call-related events
+    currentSocket.on('call-incoming', callSession => {
       setIncomingCall(callSession);
     });
 
-    // Call status updates
-    socket.on('call-status-update', updateData => {
+    currentSocket.on('call-status-update', updateData => {
       if (updateData.status === 'ongoing') {
         setCurrentCall(prev => ({
           ...prev,
@@ -144,8 +170,7 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // Call ended
-    socket.on('call-ended', endData => {
+    currentSocket.on('call-ended', endData => {
       setCurrentCall(prev => ({
         ...prev,
         status: endData.status,
@@ -155,10 +180,8 @@ export const SocketProvider = ({ children }) => {
       setTimeout(() => setCurrentCall(null), 3000);
     });
 
-    // Call signal received
-    socket.on('call-signal-received', signalData => {
+    currentSocket.on('call-signal-received', signalData => {
       if (currentCall && currentCall._id === signalData.callId) {
-        // Forward to call handler component
         window.dispatchEvent(
           new CustomEvent('webrtc-signal', {
             detail: signalData,
@@ -168,70 +191,91 @@ export const SocketProvider = ({ children }) => {
     });
 
     return () => {
-      socket.off('online-users-update');
-      socket.off('call-incoming');
-      socket.off('call-status-update');
-      socket.off('call-ended');
-      socket.off('call-signal-received');
-       socket.off('message-received', handleNewMessage);
-       socket.off('message-updated', handleMessageUpdate);
-       socket.off('typing-update', handleTypingUpdate);
+      currentSocket.off('online-users-update');
+      currentSocket.off('message-received', handleNewMessage);
+      currentSocket.off('message-updated', handleMessageUpdate);
+      currentSocket.off('message-read-update', handleMessageRead);
+      currentSocket.off('typing-update', handleTypingUpdate);
+      currentSocket.off('call-incoming');
+      currentSocket.off('call-status-update');
+      currentSocket.off('call-ended');
+      currentSocket.off('call-signal-received');
     };
-  }, [socket, currentCall]);
+  }, [dispatch, currentCall]);
 
   // Socket action methods
   const joinChat = useCallback(
-    chatId => {
-      if (socket) socket.emit('join-chat', chatId);
+    (chatId, user) => {
+      if (socketRef.current && chatId && user) {
+        console.log('[SocketContext] User Joining chat Room::', chatId, user);
+        socketRef.current.emit('join-chat', { chatId, user });
+      }
     },
-    [socket]
+    []
   );
 
   const leaveChat = useCallback(
     chatId => {
-      if (socket) socket.emit('leave-chat', chatId);
+      if (socketRef.current && chatId) {
+        console.log('[SocketContext] Leaving chat room:', chatId);
+        socketRef.current.emit('leave-chat', chatId);
+      }
     },
-    [socket]
+    []
   );
 
   const sendMessage = useCallback(
     message => {
-      if (socket) {
-        console.log(
-          '[SocketContext] Sending new message from frontend::',
-          message
-        );
-        socket.emit('new-message', message);
+      if (socketRef.current) {
+        console.log('[SocketContext] Sending message:', message);
+        socketRef.current.emit('new-message', message);
       }
     },
-    [socket]
+    []
   );
 
   const startTyping = useCallback(
-    (chatId, userId) => {
-      if (socket) socket.emit('typing-start', { chatId, userId });
+    chatId => {
+      if (socketRef.current && user?._id) {
+        console.log('[SocketContext] Start typing in chat:', chatId);
+        socketRef.current.emit('typing-start', { chatId, userId: user._id });
+      }
     },
-    [socket]
+    [user]
   );
 
   const stopTyping = useCallback(
-    (chatId, userId) => {
-      if (socket) socket.emit('typing-stop', { chatId, userId });
+    chatId => {
+      if (socketRef.current && user?._id) {
+        console.log('[SocketContext] Stop typing in chat:', chatId);
+        socketRef.current.emit('typing-stop', { chatId, userId: user._id });
+      }
     },
-    [socket]
+    [user]
   );
 
   const markMessageRead = useCallback(
-    (messageId, chatId, userId) => {
-      if (socket) socket.emit('message-read', { messageId, chatId, userId });
+    (messageId, chatId) => {
+      if (socketRef.current && user?._id) {
+        console.log('[SocketContext] Marking message as read:', messageId);
+        socketRef.current.emit('message-read', {
+          messageId,
+          chatId,
+          userId: user._id,
+        });
+      }
     },
-    [socket]
+    [user]
   );
 
   const initiateCall = useCallback(
     (chatId, callType, participants) => {
-      if (socket) {
-        socket.emit('call-initiate', { chatId, callType, participants });
+      if (socketRef.current) {
+        socketRef.current.emit('call-initiate', {
+          chatId,
+          callType,
+          participants,
+        });
         setCurrentCall({
           _id: chatId,
           chat: chatId,
@@ -243,43 +287,43 @@ export const SocketProvider = ({ children }) => {
         });
       }
     },
-    [socket, user]
+    [user]
   );
 
   const acceptCall = useCallback(
     callId => {
-      if (socket) {
-        socket.emit('call-accept', callId);
+      if (socketRef.current) {
+        socketRef.current.emit('call-accept', callId);
         setCurrentCall(incomingCall);
         setIncomingCall(null);
       }
     },
-    [socket, incomingCall]
+    [incomingCall]
   );
 
   const rejectCall = useCallback(
     callId => {
-      if (socket) {
-        socket.emit('call-reject', callId);
+      if (socketRef.current) {
+        socketRef.current.emit('call-reject', callId);
         setIncomingCall(null);
       }
     },
-    [socket]
+    []
   );
 
   const sendCallSignal = useCallback(
     (callId, targetUserId, signal) => {
-      if (socket) {
-        socket.emit('call-signal', { callId, targetUserId, signal });
+      if (socketRef.current) {
+        socketRef.current.emit('call-signal', { callId, targetUserId, signal });
       }
     },
-    [socket]
+    []
   );
 
   const endCall = useCallback(
     callId => {
-      if (socket) {
-        socket.emit('call-end', callId);
+      if (socketRef.current) {
+        socketRef.current.emit('call-end', callId);
         setCurrentCall(prev => ({
           ...prev,
           status: 'ended',
@@ -288,16 +332,20 @@ export const SocketProvider = ({ children }) => {
         setTimeout(() => setCurrentCall(null), 3000);
       }
     },
-    [socket]
+    []
   );
 
   const sendReaction = useCallback(
     (messageId, chatId, emoji) => {
-      if (socket) {
-        socket.emit('message-reaction', { messageId, chatId, emoji });
+      if (socketRef.current) {
+        socketRef.current.emit('message-reaction', {
+          messageId,
+          chatId,
+          emoji,
+        });
       }
     },
-    [socket]
+    []
   );
 
   const isUserOnline = useCallback(

@@ -8,6 +8,7 @@ import { IMessageFilters } from './messages.interface';
 import { logger } from '../../../shared/logger';
 import { paginationFields } from '../notification/notification.constant';
 import pick from '../../../shared/pick';
+import { console } from 'inspector/promises';
 
 const sendMessage = catchAsync(async (req: Request, res: Response) => {
   try {
@@ -36,12 +37,12 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
     const io = req.app.get('io');
     if (io) {
       // Remove the chatId check since we already have it
-      logger.info(
+      console.log(
         `[MessageController] Emitting socket event to chat: ${chatId}`
       );
       io.to(chatId).emit('message-received', result);
     } else {
-      logger.warn(
+      console.log(
         `[MessageController] Socket not available for real-time update`
       );
     }

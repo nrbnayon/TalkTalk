@@ -1,13 +1,16 @@
 // // redux\features\messages\messageSlice.js
-
-import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
+import {
+  createSlice,
+  createAsyncThunk,
+  createSelector,
+} from '@reduxjs/toolkit';
 
 export const fetchMessages = createAsyncThunk(
   'messages/fetchMessages',
   async ({ chatId, page = 1, limit = 10 }, { rejectWithValue }) => {
     try {
       if (!chatId) {
-        return rejectWithValue('Chat ID is required'); 
+        return rejectWithValue('Chat ID is required');
       }
 
       const response = await fetch(
@@ -37,59 +40,21 @@ export const fetchMessages = createAsyncThunk(
   }
 );
 
-
-// export const sendMessage = createAsyncThunk(
-//   'messages/sendMessage',
-//   async ({ formData, socket }, { rejectWithValue }) => {
-//     try {
-//       console.log('[messageSlice] Preparing to send message', formData);
-
-//       // Log FormData contents
-//       const formDataEntries = {};
-//       for (let [key, value] of formData.entries()) {
-//         formDataEntries[key] =
-//           value instanceof File
-//             ? `File: ${value.name} (${value.size} bytes)`
-//             : value;
-//       }
-//       console.log('[messageSlice] FormData contents:', formDataEntries);
-
-//       const response = await fetch('/api/messages', {
-//         method: 'POST',
-//         body: formData,
-//       });
-
-//       const data = await response.json();
-//       console.log('[messageSlice] Server response:', data);
-
-//       if (!response.ok) {
-//         throw new Error(data.error || 'Failed to send message');
-//       }
-
-//       // Emit socket event for real-time updates
-//       if (socket && data.data) {
-//         console.log(
-//           '[messageSlice] Emitting socket event for message:',
-//           data.data._id
-//         );
-//         socket.emit('new-message', data.data);
-//       }
-
-//       return data.data;
-//     } catch (error) {
-//       console.error('[messageSlice] Error sending message:', error);
-//       return rejectWithValue(error.message);
-//     }
-//   }
-// );
-
-// In messageSlice.js, update the sendMessage thunk:
-
 export const sendMessage = createAsyncThunk(
   'messages/sendMessage',
   async ({ formData, socket }, { rejectWithValue }) => {
     try {
       console.log('[messageSlice] Preparing to send message', formData);
+
+      // Log FormData contents
+      const formDataEntries = {};
+      for (let [key, value] of formData.entries()) {
+        formDataEntries[key] =
+          value instanceof File
+            ? `File: ${value.name} (${value.size} bytes)`
+            : value;
+      }
+      console.log('[messageSlice] FormData contents:', formDataEntries);
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -104,8 +69,11 @@ export const sendMessage = createAsyncThunk(
       }
 
       // Emit socket event for real-time updates
-      if (socket && data.data) {
-        console.log('[messageSlice] Emitting socket event for message:', data.data._id);
+       if (socket && data.data) {
+        console.log(
+          '[messageSlice] Emitting socket event for message:',
+          data.data._id
+        );
         socket.emit('new-message', data.data);
       }
 
@@ -116,6 +84,7 @@ export const sendMessage = createAsyncThunk(
     }
   }
 );
+
 
 
 export const editMessage = createAsyncThunk(
@@ -259,8 +228,6 @@ export const unpinMessage = createAsyncThunk(
   }
 );
 
-
-
 const messageSlice = createSlice({
   name: 'messages',
   initialState: {
@@ -313,13 +280,13 @@ const messageSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      .addCase(fetchMessages.pending, (state) => {
+      .addCase(fetchMessages.pending, state => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         const { chatId, messages, meta, page } = action.payload;
-        
+
         if (!state.messagesByChat[chatId]) {
           state.messagesByChat[chatId] = [];
         }
@@ -327,19 +294,19 @@ const messageSlice = createSlice({
         // Handle message ordering based on page
         if (page === 1) {
           // For first page, replace existing messages
-          state.messagesByChat[chatId] = [...messages].sort((a, b) => 
-            new Date(a.createdAt) - new Date(b.createdAt)
+          state.messagesByChat[chatId] = [...messages].sort(
+            (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
           );
         } else {
           // For subsequent pages, merge and sort all messages
           const existingMessages = state.messagesByChat[chatId];
           const allMessages = [...messages, ...existingMessages];
-          
+
           // Remove duplicates and sort by creation date
           const uniqueMessages = Array.from(
             new Map(allMessages.map(msg => [msg._id, msg])).values()
           ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-          
+
           state.messagesByChat[chatId] = uniqueMessages;
         }
 
@@ -360,8 +327,10 @@ const messageSlice = createSlice({
           state.messagesByChat[chatId] = [];
         }
         // Add new message and ensure correct order
-        state.messagesByChat[chatId] = [...state.messagesByChat[chatId], message]
-          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        state.messagesByChat[chatId] = [
+          ...state.messagesByChat[chatId],
+          message,
+        ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       })
 
       // Edit Message
@@ -457,10 +426,10 @@ export default messageSlice.reducer;
 //     const chatId = message.chat?._id || message.chat;
 //     const state = getState();
 //     const existingMessages = state.messages.messagesByChat[chatId] || [];
-    
+
 //     // Check if message already exists
 //     const messageExists = existingMessages.some(msg => msg._id === message._id);
-    
+
 //     if (!messageExists) {
 //       return message;
 //     }
@@ -475,11 +444,11 @@ export default messageSlice.reducer;
 //       if (action.payload) {
 //         const message = action.payload;
 //         const chatId = message.chat?._id || message.chat;
-        
+
 //         if (!state.messagesByChat[chatId]) {
 //           state.messagesByChat[chatId] = [];
 //         }
-        
+
 //         // Add new message and ensure correct order
 //         state.messagesByChat[chatId] = [...state.messagesByChat[chatId], message]
 //           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));

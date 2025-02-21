@@ -35,6 +35,14 @@ const ChatView = () => {
   }, [selectedChat?.users, user?._id]);
 
   useEffect(() => {
+    if (socket) {
+      console.log('Socket connected status:', socket.connected);
+      console.log('Current chat room:', chatId);
+      console.log('Current user:', user);
+    }
+  }, [socket, chatId, user]);
+
+  useEffect(() => {
     if (chatId) {
       const existingChat = chats.find(chat => chat._id === chatId);
 
@@ -48,22 +56,23 @@ const ChatView = () => {
   }, [chatId, dispatch, chats]);
 
   useEffect(() => {
-    if (socket && chatId) {
+    if (socket && chatId && user) {
       // Join chat room
-      joinChat(chatId);
+      joinChat(chatId, user);
 
       socket.on('message-received', newMessage => {
-        if (newMessage.chat === chatId) {
+        console.log('Received new message in frontend:', newMessage);
+        // Compare chat IDs as strings
+        if (newMessage.chat._id.toString() === chatId.toString()) {
           dispatch(addMessage(newMessage));
         }
       });
-
       return () => {
         leaveChat(chatId);
         socket.off('message-received');
       };
     }
-  }, [socket, chatId, joinChat, leaveChat, dispatch]);
+  }, [socket, chatId, joinChat, leaveChat, dispatch, user]);
 
   if (loading) {
     <div className="text-center">

@@ -78,12 +78,10 @@ const MessageInput = ({ chatId }) => {
     }
   }, [messageText]);
 
-  // In MessageInput.jsx
-
   const handleTyping = useCallback(() => {
-    if (!isTyping && socket && user?.id) {
+    if (!isTyping) {
       setIsTyping(true);
-      socket.emit('typing-start', { chatId, userId: user.id });
+      startTyping(chatId);
     }
 
     // Clear existing timeout
@@ -94,11 +92,9 @@ const MessageInput = ({ chatId }) => {
     // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      if (socket && user?.id) {
-        socket.emit('typing-stop', { chatId, userId: user.id });
-      }
+      stopTyping(chatId);
     }, 3000);
-  }, [chatId, user?.id, isTyping, socket]);
+  }, [chatId, isTyping, startTyping, stopTyping]);
 
   // Clean up typing timeout
   useEffect(() => {
@@ -265,85 +261,6 @@ const MessageInput = ({ chatId }) => {
     }
     return <FileIcon className="h-6 w-6" />;
   }, []);
-
-  // const getFileIcon = fileType => {
-  //   if (fileType.startsWith('image/')) return <ImageIcon className="h-6 w-6" />;
-  //   return <FileIcon className="h-6 w-6" />;
-  // };
-
-  // const startRecording = async () => {
-  //   try {
-  //     console.log('Starting recording...');
-  //     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  //     const mediaRecorder = new MediaRecorder(stream, {
-  //       mimeType: 'audio/webm',
-  //     });
-
-  //     mediaRecorderRef.current = mediaRecorder;
-  //     audioChunksRef.current = [];
-
-  //     mediaRecorder.ondataavailable = event => {
-  //       if (event.data.size > 0) {
-  //         console.log('Recording data available:', event.data.size, 'bytes');
-  //         audioChunksRef.current.push(event.data);
-  //       }
-  //     };
-
-  //     mediaRecorder.onstop = () => {
-  //       console.log('Recording stopped, processing audio...');
-  //       const audioBlob = new Blob(audioChunksRef.current, {
-  //         type: 'audio/webm',
-  //       });
-  //       const audioUrl = URL.createObjectURL(audioBlob);
-  //       console.log('Audio URL created:', audioUrl);
-  //       setAudioURL(audioUrl);
-
-  //       // Add audio to files
-  //       setFiles(prev => [
-  //         ...prev,
-  //         {
-  //           file: new File([audioBlob], `voice-message-${Date.now()}.webm`, {
-  //             type: 'audio/webm',
-  //           }),
-  //           type: 'audio',
-  //           preview: audioUrl,
-  //         },
-  //       ]);
-
-  //       stream.getTracks().forEach(track => track.stop());
-  //     };
-
-  //     mediaRecorder.start(1000); // Record in 1-second chunks
-  //     setIsRecording(true);
-  //     console.log('Recording started successfully');
-
-  //     // Start timer
-  //     let seconds = 0;
-  //     recordingTimerRef.current = setInterval(() => {
-  //       seconds++;
-  //       setRecordingTime(seconds);
-  //       if (seconds >= 300) {
-  //         // 5 minutes max
-  //         stopRecording();
-  //       }
-  //     }, 1000);
-  //   } catch (error) {
-  //     console.error('Error starting recording:', error);
-  //     setFileError('Could not access microphone');
-  //   }
-  // };
-
-  // const stopRecording = () => {
-  //   console.log('Stopping recording...');
-  //   if (mediaRecorderRef.current && isRecording) {
-  //     mediaRecorderRef.current.stop();
-  //     setIsRecording(false);
-  //     if (recordingTimerRef.current) {
-  //       clearInterval(recordingTimerRef.current);
-  //     }
-  //     setRecordingTime(0);
-  //   }
-  // };
 
   const formatTime = seconds => {
     const mins = Math.floor(seconds / 60);

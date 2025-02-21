@@ -43,6 +43,10 @@ const MessagesArea = ({ messages = [], currentUser, chatId }) => {
     useMessageScroll();
   const meta = useSelector(state => selectMessagesMeta(state, chatId));
 
+  useEffect(() => {
+    console.log('Current messages for live message check:', messages);
+  }, [messages]);
+
   // Initialize messages
   useEffect(() => {
     if (chatId && chatId !== 'undefined') {

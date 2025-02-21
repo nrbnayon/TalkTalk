@@ -2,7 +2,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   updateMessage,
   deleteMessage,
@@ -12,6 +12,7 @@ export const useChatMessages = (chatId, initialMessages = []) => {
   const [messages, setMessages] = useState(initialMessages);
   const [typingUsers, setTypingUsers] = useState(new Set());
   const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
 
   const {
     socket,
@@ -23,12 +24,13 @@ export const useChatMessages = (chatId, initialMessages = []) => {
 
   // Join chat room when component mounts
   useEffect(() => {
-    if (chatId && socket) {
-      joinChat(chatId);
+    if (socket && chatId && user) {
+      joinChat(chatId, user);
 
-      // Listen for new messages
       const handleNewMessage = message => {
-        if (message.chat.toString() === chatId.toString()) {
+        console.log('New message received in hook:', message);
+        // Ensure we compare the correct chat ID properties
+        if (message.chat._id.toString() === chatId.toString()) {
           setMessages(prev => [...prev, message]);
         }
       };
@@ -89,7 +91,7 @@ export const useChatMessages = (chatId, initialMessages = []) => {
         socket.off('typing-update', handleTypingUpdate);
       };
     }
-  }, [chatId, socket, joinChat, leaveChat, dispatch]);
+  }, [chatId, socket, joinChat, leaveChat, dispatch, user]);
 
   const sendMessage = useCallback(
     (content, replyToId = null) => {
