@@ -279,6 +279,7 @@ export const SocketProvider = ({ children }) => {
 
   // Socket action methods with improved logging and error handling
   const joinChat = useCallback((chatId, user) => {
+    console.log('Get chatid and user in socket', chatId, user);
     if (!socketRef.current || !chatId || !user) {
       console.warn(
         '[SocketContext] Cannot join chat - invalid parameters or socket not connected'

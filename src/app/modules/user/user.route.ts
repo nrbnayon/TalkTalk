@@ -187,7 +187,7 @@ router.get(
 router.get(
   '/online-users',
   auth(USER_ROLES.USER, USER_ROLES.ADMIN, USER_ROLES.HOST),
-  apiLimiter,
+  // apiLimiter,
   UserController.getOnlineUsers
 );
 

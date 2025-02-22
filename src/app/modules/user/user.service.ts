@@ -435,9 +435,9 @@ const getOnlineUsers = async () => {
   try {
     const onlineUsers = await User.find({
       onlineStatus: true,
-      lastActiveAt: {
-        $gte: new Date(Date.now() - 5 * 60 * 1000),
-      },
+      // lastActiveAt: {
+      //   $gte: new Date(Date.now() - 5 * 60 * 1000),
+      // },
     }).select('name email profileImage');
 
     logger.info(

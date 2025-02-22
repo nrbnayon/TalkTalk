@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useSelector } from 'react-redux';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { motion } from 'framer-motion'; 
+import { motion } from 'framer-motion';
 import { useSocket } from '@/context/SocketContext';
 
 const UserHome = () => {
@@ -17,7 +17,7 @@ const UserHome = () => {
   // Check if the current user is online
   const isOnline = onlineUsers.some(onlineUser => onlineUser._id === user._id);
 
-  console.log('Online Users:', onlineUsers, isOnline, user);
+  console.log('Online Users:', onlineUsers, isOnline, user); //why current usr isOnline need more time
 
   const cardVariants = {
     initial: { opacity: 0, y: 20 },

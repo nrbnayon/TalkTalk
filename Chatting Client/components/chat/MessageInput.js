@@ -78,6 +78,16 @@ const MessageInput = ({ chatId }) => {
     }
   }, [messageText]);
 
+  const validateFile = file => {
+    console.log('Validating file:', file.name, 'Size:', file.size);
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(`File ${file.name} exceeds 25MB limit`);
+      return false;
+    }
+    return true;
+  };
+
   const handleTyping = useCallback(() => {
     if (!isTyping) {
       setIsTyping(true);

@@ -84,6 +84,22 @@ class SocketHelper {
     }
   }
 
+  // private static handleJoinChat(
+  //   socket: Socket,
+  //   data: { chatId: string; user: any }
+  // ) {
+  //   const { chatId, user } = data;
+  //   if (!chatId) {
+  //     this.logError('Invalid chatId provided for joining chat room');
+  //     return;
+  //   }
+
+  //   socket.join(chatId);
+  //   this.logInfo(
+  //     `User ${user?._id} (${user?.name}) joined chat room: ${chatId}`
+  //   );
+  // }
+
   private static handleJoinChat(
     socket: Socket,
     data: { chatId: string; user: any }
@@ -93,6 +109,13 @@ class SocketHelper {
       this.logError('Invalid chatId provided for joining chat room');
       return;
     }
+
+    // Leave any other rooms first to prevent memory leaks
+    socket.rooms.forEach(room => {
+      if (room !== socket.id) {
+        socket.leave(room);
+      }
+    });
 
     socket.join(chatId);
     this.logInfo(
@@ -115,13 +138,18 @@ class SocketHelper {
         : message.chat.toString();
 
     // Log the actual chatId instead of the object
-    this.logInfo(`New message received in chat: ${chatId}`, {
-      messageId: message._id,
-      senderId: message.sender?._id,
-      content:
-        message.content?.substring(0, 50) +
-        (message.content?.length > 50 ? '...' : ''),
-    });
+    console.log(
+      `New message received in chat: ${chatId}`,
+      {
+        messageId: message._id,
+        senderId: message.sender?._id,
+        content:
+          message.content?.substring(0, 50) +
+          (message.content?.length > 50 ? '...' : ''),
+      },
+      'chat id',
+      chatId
+    );
     console.log(
       'New message received for realtime broadcast, Message data::',
       message
@@ -377,9 +405,15 @@ class SocketHelper {
       this.logError(`Error deleting message ${messageId}:`, error);
       // Optionally, emit an error event to the specific client
       if (error instanceof Error) {
-        socket.emit('delete-message-error', { messageId, error: error.message });
+        socket.emit('delete-message-error', {
+          messageId,
+          error: error.message,
+        });
       } else {
-        socket.emit('delete-message-error', { messageId, error: 'Unknown error' });
+        socket.emit('delete-message-error', {
+          messageId,
+          error: 'Unknown error',
+        });
       }
     }
   }
