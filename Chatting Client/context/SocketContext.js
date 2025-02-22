@@ -17,7 +17,13 @@ import {
   deleteMessage,
 } from '@/redux/features/messages/messageSlice';
 
-const SocketContext = createContext({
+// Constants
+const TYPING_TIMEOUT = 3000;
+const CALL_END_CLEANUP_TIMEOUT = 3000;
+const ONLINE_USERS_FETCH_INTERVAL = 30000;
+
+// Initial context state
+const initialContextState = {
   socket: null,
   onlineUsers: [],
   joinChat: () => {},
@@ -36,48 +42,184 @@ const SocketContext = createContext({
   incomingCall: null,
   currentCall: null,
   isUserOnline: () => false,
-});
+};
 
-export const SocketProvider = ({ children }) => {
-  const dispatch = useDispatch();
-  const [socket, setSocket] = useState(null);
-  const [onlineUsers, setOnlineUsers] = useState([]);
+const SocketContext = createContext(initialContextState);
+
+// Custom hook for managing typing state
+const useTypingState = () => {
   const [typingUsers, setTypingUsers] = useState(new Map());
+
+  const updateTypingState = useCallback(({ chatId, userId, isTyping }) => {
+    setTypingUsers(prev => {
+      const newMap = new Map(prev);
+      const key = `${chatId}-${userId}`;
+
+      if (isTyping) {
+        const timeoutId = setTimeout(() => {
+          setTypingUsers(current => {
+            const updated = new Map(current);
+            updated.delete(key);
+            return updated;
+          });
+        }, TYPING_TIMEOUT);
+
+        newMap.set(key, {
+          timestamp: Date.now(),
+          timeoutId,
+        });
+      } else {
+        const existing = newMap.get(key);
+        if (existing?.timeoutId) {
+          clearTimeout(existing.timeoutId);
+        }
+        newMap.delete(key);
+      }
+
+      return newMap;
+    });
+  }, []);
+
+  return [typingUsers, updateTypingState];
+};
+
+// Custom hook for managing call state
+const useCallState = (socket, user) => {
   const [incomingCall, setIncomingCall] = useState(null);
   const [currentCall, setCurrentCall] = useState(null);
 
+  const handleCallActions = {
+    initiateCall: useCallback(
+      (chatId, callType, participants) => {
+        if (socket) {
+          socket.emit('call-initiate', { chatId, callType, participants });
+          setCurrentCall({
+            _id: chatId,
+            chat: chatId,
+            participants,
+            callType,
+            status: 'initiating',
+            initiator: user._id,
+            startTime: new Date(),
+          });
+        }
+      },
+      [socket, user]
+    ),
+
+    acceptCall: useCallback(() => {
+      if (socket) {
+        socket.emit('call-accept', incomingCall._id);
+        setCurrentCall(incomingCall);
+        setIncomingCall(null);
+      }
+    }, [socket, incomingCall]),
+
+    rejectCall: useCallback(
+      callId => {
+        if (socket) {
+          socket.emit('call-reject', callId);
+          setIncomingCall(null);
+        }
+      },
+      [socket]
+    ),
+
+    endCall: useCallback(
+      callId => {
+        if (socket) {
+          socket.emit('call-end', callId);
+          setCurrentCall(prev => ({
+            ...prev,
+            status: 'ended',
+            endTime: new Date(),
+          }));
+          setTimeout(() => setCurrentCall(null), CALL_END_CLEANUP_TIMEOUT);
+        }
+      },
+      [socket]
+    ),
+
+    sendCallSignal: useCallback(
+      (callId, targetUserId, signal) => {
+        if (socket) {
+          socket.emit('call-signal', { callId, targetUserId, signal });
+        }
+      },
+      [socket]
+    ),
+  };
+
+  return {
+    incomingCall,
+    setIncomingCall,
+    currentCall,
+    setCurrentCall,
+    ...handleCallActions,
+  };
+};
+
+// Custom hook for managing online users
+const useOnlineUsers = (apiUrl, token) => {
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  const fetchOnlineUsers = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiUrl}/api/v1/user/online-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setOnlineUsers(data.data);
+      }
+    } catch (error) {
+      console.error('[SocketContext] Error fetching online users:', error);
+    }
+  }, [apiUrl, token]);
+
+  const isUserOnline = useCallback(
+    userId => onlineUsers.some(user => user._id === userId),
+    [onlineUsers]
+  );
+
+  return { onlineUsers, setOnlineUsers, fetchOnlineUsers, isUserOnline };
+};
+
+export const SocketProvider = ({ children }) => {
+  const dispatch = useDispatch();
+  const socketRef = useRef(null);
   const { user, token } = useSelector(state => state.auth);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-  const socketRef = useRef(null);
+  const [typingUsers, updateTypingState] = useTypingState();
+  const { onlineUsers, setOnlineUsers, fetchOnlineUsers, isUserOnline } =
+    useOnlineUsers(apiUrl, token);
+  const {
+    incomingCall,
+    setIncomingCall,
+    currentCall,
+    setCurrentCall,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    sendCallSignal,
+  } = useCallState(socketRef.current, user);
 
-  // Initialize socket connection
+  // Socket initialization
   useEffect(() => {
     let isMounted = true;
 
     const initializeSocket = async () => {
-      if (!user?._id || !token) {
-        console.log('[SocketContext] No user or token available');
-        return;
-      }
+      if (!user?._id || !token) return;
 
       try {
-        console.log(
-          '[SocketContext] Initializing socket connection for user:',
-          user._id
-        );
         const newSocket = await socketServiceInstance.connect(token);
 
         if (isMounted) {
-          setSocket(newSocket);
           socketRef.current = newSocket;
           socketServiceInstance.setUserOnline(user._id);
-          console.log(
-            '[SocketContext] Socket connected successfully:',
-            newSocket?.id
-          );
-
-          // Fetch initial online users immediately after connection
           fetchOnlineUsers();
         }
       } catch (error) {
@@ -85,34 +227,17 @@ export const SocketProvider = ({ children }) => {
       }
     };
 
-    const fetchOnlineUsers = async () => {
-      try {
-        console.log('[SocketContext] Fetching online users');
-        const response = await fetch(`${apiUrl}/api/v1/user/online-users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-
-        if (data.success) {
-          console.log('[SocketContext] Online users fetched:', data.data);
-          setOnlineUsers(data.data);
-        }
-      } catch (error) {
-        console.error('[SocketContext] Error fetching online users:', error);
-      }
-    };
-
     if (user && token) {
       initializeSocket();
-
-      // Set up periodic online users fetch
-      const onlineUsersInterval = setInterval(fetchOnlineUsers, 30000); // Every 30 seconds
+      const onlineUsersInterval = setInterval(
+        fetchOnlineUsers,
+        ONLINE_USERS_FETCH_INTERVAL
+      );
 
       return () => {
         isMounted = false;
         clearInterval(onlineUsersInterval);
         if (socketRef.current) {
-          console.log('[SocketContext] Cleaning up socket connection');
           socketServiceInstance.disconnect();
           socketRef.current = null;
         }
@@ -122,366 +247,161 @@ export const SocketProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [apiUrl, user, token]);
+  }, [apiUrl, user, token, fetchOnlineUsers]);
 
-  // Set up event listeners
+  // Socket event handlers
   useEffect(() => {
     if (!socketRef.current) return;
 
     const currentSocket = socketRef.current;
 
-    // Online users update
-    currentSocket.on('online-users-update', users => {
-      console.log('[SocketContext] Online users updated:', users);
-      setOnlineUsers(prevUsers => {
-        // Only update if the users list has actually changed
-        const hasChanged = JSON.stringify(prevUsers) !== JSON.stringify(users);
-        return hasChanged ? users : prevUsers;
-      });
-    });
-
-    // Handle new messages
-    const handleNewMessage = message => {
-      console.log('[SocketContext] New message received:', message);
-      dispatch(addMessage(message));
-    };
-
-    // Handle message updates
-    const handleMessageUpdate = updatedMessage => {
-      console.log('[SocketContext] Message updated:', updatedMessage);
-      dispatch(updateMessage(updatedMessage));
-    };
-
-    // Handle message deletion
-    const handleMessageDelete = ({ messageId, chatId }) => {
-      console.log('[SocketContext] Message deleted:', messageId);
-      dispatch(deleteMessage({ messageId, chatId }));
-    };
-
-    // Handle read status updates
-    const handleMessageRead = ({ messageId, userId, chatId }) => {
-      console.log('[SocketContext] Message read:', {
-        messageId,
-        userId,
-        chatId,
-      });
-      dispatch(markMessageAsRead({ messageId, chatId, userId }));
-    };
-
-    // Handle typing status with debounce
-    const handleTypingUpdate = ({ chatId, userId, isTyping }) => {
-      console.log('[SocketContext] Typing update:', {
-        chatId,
-        userId,
-        isTyping,
-      });
-      setTypingUsers(prev => {
-        const newMap = new Map(prev);
-        const key = `${chatId}-${userId}`;
-
-        if (isTyping) {
-          newMap.set(key, {
-            timestamp: Date.now(),
-            timeoutId: setTimeout(() => {
-              setTypingUsers(current => {
-                const updated = new Map(current);
-                updated.delete(key);
-                return updated;
-              });
-            }, 3000),
-          });
-        } else {
-          const existing = newMap.get(key);
-          if (existing?.timeoutId) {
-            clearTimeout(existing.timeoutId);
-          }
-          newMap.delete(key);
-        }
-
-        return newMap;
-      });
-    };
-
-    // Call-related events
-    currentSocket.on('call-incoming', callSession => {
-      setIncomingCall(callSession);
-    });
-
-    currentSocket.on('call-status-update', updateData => {
-      if (updateData.status === 'ongoing') {
-        setCurrentCall(prev => ({
-          ...prev,
-          status: 'ongoing',
-          acceptedBy: updateData.acceptedBy,
-        }));
-        setIncomingCall(null);
-      }
-    });
-
-    currentSocket.on('call-ended', endData => {
-      setCurrentCall(prev => ({
-        ...prev,
-        status: endData.status,
-        endedBy: endData.endedBy || endData.rejectedBy,
-        endTime: new Date(),
-      }));
-      setTimeout(() => setCurrentCall(null), 3000);
-    });
-
-    currentSocket.on('call-signal-received', signalData => {
-      if (currentCall && currentCall._id === signalData.callId) {
-        window.dispatchEvent(
-          new CustomEvent('webrtc-signal', {
-            detail: signalData,
-          })
-        );
-      }
-    });
-
-    // Set up all event listeners
-    // const events = {
-    //   'online-users-update': users => {
-    //     console.log('[SocketContext] Online users update received:', users);
-    //     setOnlineUsers(users);
-    //   },
-    //   'message-received': handleNewMessage,
-    //   'message-updated': handleMessageUpdate,
-    //   'message-deleted': handleMessageDelete,
-    //   'message-read-update': handleMessageRead,
-    //   'typing-update': handleTypingUpdate,
-    // };
-
-    const events = {
+    const socketEventHandlers = {
       'online-users-update': users => {
-        console.log('[SocketContext] Online users updated:', users);
-        setOnlineUsers(users);
+        setOnlineUsers(prevUsers => {
+          const hasChanged =
+            JSON.stringify(prevUsers) !== JSON.stringify(users);
+          return hasChanged ? users : prevUsers;
+        });
       },
       'message-received': message => {
-        console.log('[SocketContext] New message received:', message);
         dispatch(addMessage(message));
       },
       'message-updated': updatedMessage => {
-        console.log('[SocketContext] Message updated:', updatedMessage);
         dispatch(updateMessage(updatedMessage));
       },
       'message-deleted': data => {
-        console.log('[SocketContext] Message deleted:', data);
         dispatch(deleteMessage(data));
       },
-      'typing-update': handleTypingUpdate,
       'message-read-update': data => {
-        console.log('[SocketContext] Message read update:', data);
         dispatch(markMessageAsRead(data));
+      },
+      'typing-update': updateTypingState,
+      'call-incoming': callSession => {
+        setIncomingCall(callSession);
+      },
+      'call-status-update': updateData => {
+        if (updateData.status === 'ongoing') {
+          setCurrentCall(prev => ({
+            ...prev,
+            status: 'ongoing',
+            acceptedBy: updateData.acceptedBy,
+          }));
+          setIncomingCall(null);
+        }
+      },
+      'call-ended': endData => {
+        setCurrentCall(prev => ({
+          ...prev,
+          status: endData.status,
+          endedBy: endData.endedBy || endData.rejectedBy,
+          endTime: new Date(),
+        }));
+        setTimeout(() => setCurrentCall(null), CALL_END_CLEANUP_TIMEOUT);
+      },
+      'call-signal-received': signalData => {
+        if (currentCall && currentCall._id === signalData.callId) {
+          window.dispatchEvent(
+            new CustomEvent('webrtc-signal', {
+              detail: signalData,
+            })
+          );
+        }
       },
     };
 
-    // Register all events
-    Object.entries(events).forEach(([event, handler]) => {
+    // Register all event handlers
+    Object.entries(socketEventHandlers).forEach(([event, handler]) => {
       currentSocket.on(event, handler);
     });
 
     // Cleanup function
     return () => {
-      // Clear all typing timeouts
       typingUsers.forEach(({ timeoutId }) => {
         if (timeoutId) clearTimeout(timeoutId);
       });
 
-      // Cleanup all events
-      Object.entries(events).forEach(([event, handler]) => {
-        currentSocket.off(event, handler);
+      Object.keys(socketEventHandlers).forEach(event => {
+        currentSocket.off(event, socketEventHandlers[event]);
       });
     };
-  }, [dispatch, currentCall, typingUsers]);
+  }, [
+    dispatch,
+    currentCall,
+    typingUsers,
+    setOnlineUsers,
+    updateTypingState,
+    setIncomingCall,
+    setCurrentCall,
+  ]);
 
-  const isUserOnline = useCallback(
-    userId => {
-      return onlineUsers.some(user => user._id === userId);
-    },
-    [onlineUsers]
-  );
+  // Socket action methods
+  const socketActions = {
+    joinChat: useCallback((chatId, user) => {
+      if (!socketRef.current || !chatId || !user) return;
+      socketRef.current.emit('join-chat', { chatId, user });
+    }, []),
 
-  // Socket action methods with improved logging and error handling
-  const joinChat = useCallback((chatId, user) => {
-    console.log('Get chatid and user in socket', chatId, user);
-    if (!socketRef.current || !chatId || !user) {
-      console.warn(
-        '[SocketContext] Cannot join chat - invalid parameters or socket not connected'
-      );
-      return;
-    }
+    leaveChat: useCallback(chatId => {
+      if (!socketRef.current || !chatId) return;
+      socketRef.current.emit('leave-chat', chatId);
+    }, []),
 
-    console.log('[SocketContext] Joining chat:', { chatId, userId: user._id });
-    socketRef.current.emit('join-chat', { chatId, user });
-  }, []);
+    sendMessage: useCallback(message => {
+      if (!socketRef.current || !message) return;
+      socketRef.current.emit('new-message', message);
+    }, []),
 
-  const leaveChat = useCallback(chatId => {
-    if (!socketRef.current || !chatId) {
-      console.warn(
-        '[SocketContext] Cannot leave chat - invalid parameters or socket not connected'
-      );
-      return;
-    }
+    startTyping: useCallback(
+      chatId => {
+        if (!socketRef.current || !user?._id || !chatId) return;
+        socketRef.current.emit('typing-start', { chatId, userId: user._id });
+      },
+      [user]
+    ),
 
-    console.log('[SocketContext] Leaving chat:', chatId);
-    socketRef.current.emit('leave-chat', chatId);
-  }, []);
+    stopTyping: useCallback(
+      chatId => {
+        if (!socketRef.current || !user?._id || !chatId) return;
+        socketRef.current.emit('typing-stop', { chatId, userId: user._id });
+      },
+      [user]
+    ),
 
-  const sendMessage = useCallback(message => {
-    if (!socketRef.current || !message) {
-      console.warn(
-        '[SocketContext] Cannot send message - invalid parameters or socket not connected'
-      );
-      return;
-    }
-
-    console.log('[SocketContext] Sending message:', message);
-    socketRef.current.emit('new-message', message);
-  }, []);
-
-  const startTyping = useCallback(
-    chatId => {
-      if (!socketRef.current || !user?._id || !chatId) {
-        console.warn(
-          '[SocketContext] Cannot start typing - invalid parameters or socket not connected'
-        );
-        return;
-      }
-
-      console.log('[SocketContext] Start typing:', {
-        chatId,
-        userId: user._id,
-      });
-      socketRef.current.emit('typing-start', { chatId, userId: user._id });
-    },
-    [user]
-  );
-
-  const stopTyping = useCallback(
-    chatId => {
-      if (!socketRef.current || !user?._id || !chatId) {
-        console.warn(
-          '[SocketContext] Cannot stop typing - invalid parameters or socket not connected'
-        );
-        return;
-      }
-
-      console.log('[SocketContext] Stop typing:', { chatId, userId: user._id });
-      socketRef.current.emit('typing-stop', { chatId, userId: user._id });
-    },
-    [user]
-  );
-
-  const markMessageRead = useCallback(
-    (messageId, chatId) => {
-      if (!socketRef.current || !user?._id || !messageId || !chatId) {
-        console.warn(
-          '[SocketContext] Cannot mark message as read - invalid parameters or socket not connected'
-        );
-        return;
-      }
-
-      console.log('[SocketContext] Marking message as read:', {
-        messageId,
-        chatId,
-        userId: user._id,
-      });
-      socketRef.current.emit('message-read', {
-        messageId,
-        chatId,
-        userId: user._id,
-      });
-    },
-    [user]
-  );
-
-  const initiateCall = useCallback(
-    (chatId, callType, participants) => {
-      if (socketRef.current) {
-        socketRef.current.emit('call-initiate', {
+    markMessageRead: useCallback(
+      (messageId, chatId) => {
+        if (!socketRef.current || !user?._id || !messageId || !chatId) return;
+        socketRef.current.emit('message-read', {
+          messageId,
           chatId,
-          callType,
-          participants,
+          userId: user._id,
         });
-        setCurrentCall({
-          _id: chatId,
-          chat: chatId,
-          participants,
-          callType,
-          status: 'initiating',
-          initiator: user._id,
-          startTime: new Date(),
-        });
-      }
-    },
-    [user]
-  );
+      },
+      [user]
+    ),
 
-  const acceptCall = useCallback(
-    callId => {
-      if (socketRef.current) {
-        socketRef.current.emit('call-accept', callId);
-        setCurrentCall(incomingCall);
-        setIncomingCall(null);
-      }
-    },
-    [incomingCall]
-  );
-
-  const rejectCall = useCallback(callId => {
-    if (socketRef.current) {
-      socketRef.current.emit('call-reject', callId);
-      setIncomingCall(null);
-    }
-  }, []);
-
-  const sendCallSignal = useCallback((callId, targetUserId, signal) => {
-    if (socketRef.current) {
-      socketRef.current.emit('call-signal', { callId, targetUserId, signal });
-    }
-  }, []);
-
-  const endCall = useCallback(callId => {
-    if (socketRef.current) {
-      socketRef.current.emit('call-end', callId);
-      setCurrentCall(prev => ({
-        ...prev,
-        status: 'ended',
-        endTime: new Date(),
-      }));
-      setTimeout(() => setCurrentCall(null), 3000);
-    }
-  }, []);
-
-  const sendReaction = useCallback((messageId, chatId, emoji) => {
-    if (socketRef.current) {
+    sendReaction: useCallback((messageId, chatId, emoji) => {
+      if (!socketRef.current) return;
       socketRef.current.emit('message-reaction', {
         messageId,
         chatId,
         emoji,
       });
-    }
-  }, []);
+    }, []),
+  };
 
   const contextValue = {
     socket: socketRef.current,
     onlineUsers,
-    joinChat,
-    leaveChat,
-    sendMessage,
-    startTyping,
-    stopTyping,
-    markMessageRead,
+    typingUsers,
+    incomingCall,
+    currentCall,
+    isUserOnline,
+    ...socketActions,
     initiateCall,
     acceptCall,
     rejectCall,
     sendCallSignal,
     endCall,
-    sendReaction,
-    typingUsers,
-    incomingCall,
-    currentCall,
-    isUserOnline,
   };
 
   return (
