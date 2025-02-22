@@ -69,7 +69,7 @@ export const sendMessage = createAsyncThunk(
       }
 
       // Emit socket event for real-time updates
-       if (socket && data.data) {
+      if (socket && data.data) {
         console.log(
           '[messageSlice] Emitting socket event for message:',
           data.data._id
@@ -84,8 +84,6 @@ export const sendMessage = createAsyncThunk(
     }
   }
 );
-
-
 
 export const editMessage = createAsyncThunk(
   'messages/editMessage',
@@ -239,14 +237,22 @@ const messageSlice = createSlice({
   },
   reducers: {
     addMessage: (state, action) => {
-      const message = action.payload;
+      const message = action.payload.message; // Ensure payload is correctly structured
+      console.log('Real-time Message received in slice:', message);
       const chatId = message.chat?._id || message.chat;
 
       if (!state.messagesByChat[chatId]) {
         state.messagesByChat[chatId] = [];
       }
-      if (!state.messagesByChat[chatId].some(msg => msg._id === message._id)) {
+
+      // Check if the message already exists
+      const messageExists = state.messagesByChat[chatId].some(
+        msg => msg._id === message._id
+      );
+
+      if (!messageExists) {
         state.messagesByChat[chatId].push(message);
+        // Sort messages by createdAt
         state.messagesByChat[chatId].sort(
           (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
         );
@@ -307,21 +313,21 @@ const messageSlice = createSlice({
         }
 
         // Handle message ordering based on page
-       if (page === 1) {
-         state.messagesByChat[chatId] = [...messages].sort(
-           (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-         );
-       } else {
-         const existingMessages = state.messagesByChat[chatId];
-         const newMessages = messages.filter(
-           msg =>
-             !existingMessages.some(existingMsg => existingMsg._id === msg._id)
-         );
-         state.messagesByChat[chatId] = [
-           ...existingMessages,
-           ...newMessages,
-         ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-       }
+        if (page === 1) {
+          state.messagesByChat[chatId] = [...messages].sort(
+            (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+          );
+        } else {
+          const existingMessages = state.messagesByChat[chatId];
+          const newMessages = messages.filter(
+            msg =>
+              !existingMessages.some(existingMsg => existingMsg._id === msg._id)
+          );
+          state.messagesByChat[chatId] = [
+            ...existingMessages,
+            ...newMessages,
+          ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        }
 
         state.meta[chatId] = meta;
         state.loading = false;

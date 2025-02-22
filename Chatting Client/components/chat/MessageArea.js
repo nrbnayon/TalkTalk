@@ -8,6 +8,8 @@ import {
   deleteMessage,
   fetchMessages,
   selectMessagesMeta,
+  addMessage,
+  selectMessagesByChatId,
 } from '@/redux/features/messages/messageSlice';
 import { useMessageActions } from '@/hooks/useMessageActions';
 import { useMessageScroll } from '@/hooks/useMessageScroll';
@@ -17,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 import { EmptyStateMessage, LottieLoading } from '../Animations/Loading';
 
 const MessagesArea = ({
-  messages = [],
+  // messages = [],
   currentUser,
   chatId,
   typingUsers = [],
@@ -48,10 +50,8 @@ const MessagesArea = ({
     useMessageScroll();
   const meta = useSelector(state => selectMessagesMeta(state, chatId));
 
-  useEffect(() => {
-    console.log('[MessageArea] Current messages:', messages.length);
-    console.log('[MessageArea] Current typing users:', typingUsers);
-  }, [messages, typingUsers]);
+  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
+  console.log('[MessageArea] Messages from selector:', messages);
 
   // Initialize messages
   useEffect(() => {

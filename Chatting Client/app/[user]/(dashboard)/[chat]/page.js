@@ -28,9 +28,7 @@ const ChatView = () => {
   const messages = useSelector(state => selectMessagesByChatId(state, chatId));
   const loading = useSelector(selectMessagesLoading);
   const initialized = useSelector(state => state.messages.initialized[chatId]);
-  const { socket, joinChat, leaveChat } = useSocket();
-
-  // Use the useChatMessages hook instead of manually handling socket events
+  const { joinChat, leaveChat } = useSocket();
   const { sendMessage, typingUsers } = useChatMessages(chatId, messages);
 
   const otherUser = useMemo(() => {
@@ -38,31 +36,12 @@ const ChatView = () => {
   }, [selectedChat?.users, user?._id]);
 
   useEffect(() => {
-    if (!socket || !chatId) return;
-
-    const handleNewMessage = message => {
-      console.log('[ChatView] New message received:', message);
-      if (message.chat._id === chatId) {
-        // Dispatch the new message to Redux store
-        dispatch(addMessage({ chatId, message }));
-      }
-    };
-
-    // Add socket event listener
-    socket.on('message-received', handleNewMessage);
-
-    return () => {
-      socket.off('message-received', handleNewMessage);
-    };
-  }, [socket, chatId, dispatch]);
-
-  useEffect(() => {
     if (user && (selectedChat || chatId)) {
-      console.log('Get chat id, user, and selectedChat', {
-        chatId,
-        user,
-        selectedChat,
-      });
+      // console.log('Get chat id, user, and selectedChat', {
+      //   chatId,
+      //   user,
+      //   selectedChat,
+      // });
       joinChat(chatId, user);
       const existingChat = chats.find(chat => chat._id === chatId);
       if (existingChat) {
@@ -70,7 +49,6 @@ const ChatView = () => {
       } else {
         dispatch(accessChat(chatId));
       }
-      // Only fetch messages if the chat hasn't been initialized
       if (!initialized) {
         dispatch(fetchMessages({ chatId, page: 1, limit: 20 }));
       }

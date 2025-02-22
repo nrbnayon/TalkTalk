@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux';
 import {
   updateMessage,
   deleteMessage,
+  addMessage,
 } from '../redux/features/messages/messageSlice';
 
 const TYPING_TIMEOUT = 3000;
@@ -94,6 +95,8 @@ export const useChatMessages = (chatId, initialMessages = []) => {
 
     const handleNewMessage = message => {
       if (message.chat._id === chatId || message.chat === chatId) {
+        dispatch(addMessage({ message }));
+      } else {
         queueMessage(message);
       }
     };
