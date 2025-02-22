@@ -6,7 +6,7 @@ import {
   unpinMessage,
   updateMessage,
 } from '@/redux/features/messages/messageSlice';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 
 export const useMessageActions = chatId => {
