@@ -59,16 +59,16 @@ const AppSidebar = () => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
 
-  console.log(
-    'Get Login user in AppSidebar',
-    user,
-    'My All chats:',
-    chats,
-    'Select for chat:',
-    selectedChat,
-    'Online users:',
-    onlineUsers
-  );
+  // console.log(
+  //   'Get Login user in AppSidebar',
+  //   user,
+  //   'My All chats:',
+  //   chats,
+  //   'Select for chat:',
+  //   selectedChat,
+  //   'Online users:',
+  //   onlineUsers
+  // );
 
   useEffect(() => {
     if (user) {
@@ -197,7 +197,7 @@ const AppSidebar = () => {
     const otherUser = chat.users.find(u => u._id !== user?._id);
     const lastMessage = chat.latestMessage;
 
-    const isOnline = isUserOnline(otherUser?._id) 
+    const isOnline = isUserOnline(otherUser?._id);
 
     const unreadCount =
       lastMessage && !lastMessage.readBy?.includes(user?._id) ? 1 : 0;

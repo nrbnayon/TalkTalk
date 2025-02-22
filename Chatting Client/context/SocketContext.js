@@ -239,16 +239,40 @@ export const SocketProvider = ({ children }) => {
     });
 
     // Set up all event listeners
+    // const events = {
+    //   'online-users-update': users => {
+    //     console.log('[SocketContext] Online users update received:', users);
+    //     setOnlineUsers(users);
+    //   },
+    //   'message-received': handleNewMessage,
+    //   'message-updated': handleMessageUpdate,
+    //   'message-deleted': handleMessageDelete,
+    //   'message-read-update': handleMessageRead,
+    //   'typing-update': handleTypingUpdate,
+    // };
+
     const events = {
       'online-users-update': users => {
-        console.log('[SocketContext] Online users update received:', users);
+        console.log('[SocketContext] Online users updated:', users);
         setOnlineUsers(users);
       },
-      'message-received': handleNewMessage,
-      'message-updated': handleMessageUpdate,
-      'message-deleted': handleMessageDelete,
-      'message-read-update': handleMessageRead,
+      'message-received': message => {
+        console.log('[SocketContext] New message received:', message);
+        dispatch(addMessage(message));
+      },
+      'message-updated': updatedMessage => {
+        console.log('[SocketContext] Message updated:', updatedMessage);
+        dispatch(updateMessage(updatedMessage));
+      },
+      'message-deleted': data => {
+        console.log('[SocketContext] Message deleted:', data);
+        dispatch(deleteMessage(data));
+      },
       'typing-update': handleTypingUpdate,
+      'message-read-update': data => {
+        console.log('[SocketContext] Message read update:', data);
+        dispatch(markMessageAsRead(data));
+      },
     };
 
     // Register all events

@@ -17,7 +17,7 @@ const UserHome = () => {
   // Check if the current user is online
   const isOnline = onlineUsers.some(onlineUser => onlineUser._id === user._id);
 
-  console.log('Online Users:', onlineUsers, isOnline, user); //why current usr isOnline need more time
+  // console.log('Online Users:', onlineUsers, isOnline, user); //why current usr isOnline need more time
 
   const cardVariants = {
     initial: { opacity: 0, y: 20 },
