@@ -1,3 +1,4 @@
+// frontend\app\[user]\page.js
 'use client';
 import moment from 'moment';
 import { UserRound, ArrowDown } from 'lucide-react';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useSelector } from 'react-redux';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { motion } from 'framer-motion'; // Import framer-motion for animations
+import { motion } from 'framer-motion'; 
 import { useSocket } from '@/context/SocketContext';
 
 const UserHome = () => {

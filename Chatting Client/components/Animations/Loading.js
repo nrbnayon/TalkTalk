@@ -1,17 +1,18 @@
-import { Player } from '@lottiefiles/react-lottie-player';
+import dynamic from 'next/dynamic';
+
+const LottiePlayer = dynamic(
+  () => import('@lottiefiles/react-lottie-player').then(mod => mod.Player),
+  { ssr: false }
+);
+
 import loadingAnimation from '@/assets/lottie/loadinglottie.json';
 import messagingAnimation from '@/assets/lottie/Message.json';
 import { MessageSquarePlus } from 'lucide-react';
 
-export const LoadingSpinner = () => (
-  <div className="flex items-center justify-center h-screen w-full">
-    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-  </div>
-);
 export const LottieLoading = () => {
   return (
-    <div className="flex items-center justify-center  w-full">
-      <Player
+    <div className="flex items-center justify-center w-full">
+      <LottiePlayer
         autoplay
         loop
         src={loadingAnimation}
@@ -27,7 +28,7 @@ export const EmptyStateMessage = () => {
       <div className="max-w-md w-full animate-fade-in">
         <div className="relative backdrop-blur-sm bg-white/30 rounded-2xl p-8">
           <div className="w-64 h-64 mx-auto mb-6">
-            <Player
+            <LottiePlayer
               autoplay
               loop
               src={messagingAnimation}
