@@ -18,13 +18,14 @@ import { LottieLoading } from '@/components/Animations/Loading';
 import { MessagesSquare } from 'lucide-react';
 
 const ChatView = () => {
-  const dispatch = useDispatch();
-  const params = useParams();
-  const chatId = params?.chat;
-  const { user } = useSelector(state => state.auth);
-  const { chats, selectedChat } = useSelector(state => state.chat);
-  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
-  const loading = useSelector(selectMessagesLoading);
+ const dispatch = useDispatch();
+ const params = useParams();
+ const chatId = params?.chat;
+ const { user } = useSelector(state => state.auth);
+ const { chats, selectedChat } = useSelector(state => state.chat);
+ const messages = useSelector(state => selectMessagesByChatId(state, chatId));
+ const loading = useSelector(selectMessagesLoading);
+ const initialized = useSelector(state => state.messages.initialized[chatId]);
 
   // Use the useChatMessages hook instead of manually handling socket events
   const { sendMessage, typingUsers } = useChatMessages(chatId, messages);
@@ -33,28 +34,34 @@ const ChatView = () => {
     return selectedChat?.users?.find(u => u._id !== user?._id);
   }, [selectedChat?.users, user?._id]);
 
-  useEffect(() => {
-    if (chatId) {
-      const existingChat = chats.find(chat => chat._id === chatId);
-      if (existingChat) {
-        dispatch(selectChat(existingChat));
-      } else {
-        dispatch(accessChat(chatId));
-      }
-      dispatch(fetchMessages(chatId));
-    }
-  }, [chatId, dispatch, chats]);
+ useEffect(() => {
+   if (chatId) {
+     const existingChat = chats.find(chat => chat._id === chatId);
+     if (existingChat) {
+       dispatch(selectChat(existingChat));
+     } else {
+       dispatch(accessChat(chatId));
+     }
+     // Only fetch messages if the chat hasn't been initialized
+     if (!initialized) {
+       dispatch(fetchMessages({ chatId, page: 1, limit: 20 }));
+     }
+   }
+ }, [chatId, dispatch, chats, initialized]);
 
-  if (loading) {
-    return (
-      <div className="text-center">
-        <LottieLoading />
-        <p className="text-gray-500">
-          Please wait while we load your conversation
-        </p>
-      </div>
-    );
-  }
+ if (loading && !initialized) {
+   return (
+     <div className="flex flex-col items-center justify-center h-screen w-full bg-gray-50">
+       <LottieLoading />
+       <div className="flex justify-center items-center gap-2">
+         <MessagesSquare className="w-16 h-16 text-gray-300" />
+         <p className="text-gray-700">
+           Please wait while we load your conversation
+         </p>
+       </div>
+     </div>
+   );
+ }
 
   if (!selectedChat) {
     return (

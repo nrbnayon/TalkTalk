@@ -59,14 +59,16 @@ const AppSidebar = () => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
 
-  // console.log(
-  //   'Get Login user in AppSidebar',
-  //   user,
-  //   'My All chats:',
-  //   chats,
-  //   'Select for chat:',
-  //   selectedChat
-  // );
+  console.log(
+    'Get Login user in AppSidebar',
+    user,
+    'My All chats:',
+    chats,
+    'Select for chat:',
+    selectedChat,
+    'Online users:',
+    onlineUsers
+  );
 
   useEffect(() => {
     if (user) {

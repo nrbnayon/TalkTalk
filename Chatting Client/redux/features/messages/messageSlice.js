@@ -7,7 +7,7 @@ import {
 
 export const fetchMessages = createAsyncThunk(
   'messages/fetchMessages',
-  async ({ chatId, page = 1, limit = 10 }, { rejectWithValue }) => {
+  async ({ chatId, page = 1, limit = 40 }, { rejectWithValue }) => {
     try {
       if (!chatId) {
         return rejectWithValue('Chat ID is required');
@@ -235,6 +235,7 @@ const messageSlice = createSlice({
     meta: {},
     loading: false,
     error: null,
+    initialized: {},
   },
   reducers: {
     addMessage: (state, action) => {
@@ -292,7 +293,8 @@ const messageSlice = createSlice({
     builder
       .addCase(fetchMessages.pending, (state, action) => {
         // Only set loading true if this is the first load for this chat
-        if (!state.initialized[action.meta.arg.chatId]) {
+        const chatId = action.meta.arg.chatId;
+        if (!state.initialized[chatId]) {
           state.loading = true;
         }
         state.error = null;
@@ -305,21 +307,21 @@ const messageSlice = createSlice({
         }
 
         // Handle message ordering based on page
-        if (page === 1) {
-          state.messagesByChat[chatId] = [...messages].sort(
-            (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-          );
-        } else {
-          const existingMessages = state.messagesByChat[chatId];
-          const newMessages = messages.filter(
-            msg =>
-              !existingMessages.some(existingMsg => existingMsg._id === msg._id)
-          );
-          state.messagesByChat[chatId] = [
-            ...existingMessages,
-            ...newMessages,
-          ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        }
+       if (page === 1) {
+         state.messagesByChat[chatId] = [...messages].sort(
+           (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+         );
+       } else {
+         const existingMessages = state.messagesByChat[chatId];
+         const newMessages = messages.filter(
+           msg =>
+             !existingMessages.some(existingMsg => existingMsg._id === msg._id)
+         );
+         state.messagesByChat[chatId] = [
+           ...existingMessages,
+           ...newMessages,
+         ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+       }
 
         state.meta[chatId] = meta;
         state.loading = false;
