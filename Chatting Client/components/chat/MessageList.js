@@ -8,9 +8,9 @@ import {
   Pin,
   Edit2,
   Reply,
-  Heart,
   MoreVertical,
   Trash2,
+  SmilePlusIcon,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -122,7 +122,6 @@ const MessageList = ({
   const renderMessage = (message, isPinnedView = false) => {
     if (message.isDeleted || !message?.sender || !currentUser) return null;
 
-    // Ensure we're comparing strings with strings or ObjectIds with ObjectIds
     const isOwnMessage =
       message.sender._id.toString() === currentUser._id.toString();
     const messageTime = formatMessageTime(message.createdAt);
@@ -136,7 +135,6 @@ const MessageList = ({
       ? formatRelativeTime(message.deletedAt)
       : null;
 
-    // Safely handle message.chat being undefined
     const otherUsers =
       message.chat?.users?.filter(
         userId =>
@@ -162,11 +160,71 @@ const MessageList = ({
           }
         }}
         className={cn(
-          'flex items-start gap-3 group',
+          'flex items-start gap-1 group',
           isOwnMessage ? 'flex-row-reverse' : 'flex-row',
           isPinnedView ? 'bg-gray-50/80 p-3 rounded-lg mb-2' : 'mb-4'
         )}
       >
+        {!isPinnedView && (
+          <div
+            className={cn(
+              'opacity-0 group-hover:opacity-100 transition-all duration-200'
+            )}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 rounded-full hover:bg-gray-100"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align={isOwnMessage ? 'start' : 'end'}
+                className="w-48 bg-white/95 backdrop-blur-sm"
+              >
+                <DropdownMenuItem
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('replyTo', { detail: message })
+                    )
+                  }
+                >
+                  <Reply className="h-4 w-4 mr-2" />
+                  Reply
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    message.isPinned
+                      ? onUnpinMessage(message._id)
+                      : onPinMessage(message._id)
+                  }
+                >
+                  <Pin className="h-4 w-4 mr-2" />
+                  {message.isPinned ? 'Unpin' : 'Pin'}
+                </DropdownMenuItem>
+                {isOwnMessage && (
+                  <>
+                    <DropdownMenuItem onClick={() => onEditMessage(message)}>
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onDeleteMessage(message._id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         <Avatar className="h-10 w-10 border-2 border-gray-100 shadow-sm flex-shrink-0">
           <AvatarImage src={senderImage} alt={senderName} />
           <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700">
@@ -205,16 +263,16 @@ const MessageList = ({
                 {message.replyTo.content.length > 50 ? '...' : ''}
               </div>
             )}
-
             <div
               className={cn(
                 'px-4 py-1 shadow-sm',
                 message.isDeleted
                   ? 'bg-gray-400 text-gray-700 italic'
-                  : isOwnMessage &&
-                    !(message.attachments && message.attachments.length > 0)
-                  ? 'bg-blue-500 text-white rounded-2xl rounded-tr-sm mt-1'
-                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm'
+                  : isOwnMessage
+                  ? message.attachments && message.attachments.length > 0
+                    ? 'bg-green-500 text-white rounded-2xl rounded-tr-sm mt-1 mr-1' 
+                    : 'bg-blue-500 text-white rounded-2xl rounded-tr-sm mt-1 mr-1'
+                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm ml-1'
               )}
             >
               {message.content && message.content.length > 0 && (
@@ -245,7 +303,7 @@ const MessageList = ({
                   isOwnMessage ? 'justify-end' : 'justify-start'
                 )}
               >
-                {['👍', '❤️', '😊', '😂', '😮', '😢'].map(
+                {['😊', '😂', '❤️', '👍', '👎', '😮', '😢', '😡'].map(
                   emoji =>
                     message.reactions.some(r => r.emoji === emoji) &&
                     renderReactionButton(message, emoji)
@@ -257,69 +315,16 @@ const MessageList = ({
               <div
                 className={cn(
                   'absolute top-1/2 -translate-y-1/2',
-                  isOwnMessage ? '-left-12' : '-right-12',
+                  isOwnMessage ? '-left-6' : '-right-7',
                   'opacity-0 group-hover:opacity-100 transition-all duration-200'
                 )}
               >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-full hover:bg-gray-100"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align={isOwnMessage ? 'start' : 'end'}
-                    className="w-48 bg-white/95 backdrop-blur-sm"
-                  >
-                    <DropdownMenuItem
-                      onClick={() =>
-                        window.dispatchEvent(
-                          new CustomEvent('replyTo', { detail: message })
-                        )
-                      }
-                    >
-                      <Reply className="h-4 w-4 mr-2" />
-                      Reply
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        message.isPinned
-                          ? onUnpinMessage(message._id)
-                          : onPinMessage(message._id)
-                      }
-                    >
-                      <Pin className="h-4 w-4 mr-2" />
-                      {message.isPinned ? 'Unpin' : 'Pin'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={e => onOpenEmojiPicker(message, e)}
-                    >
-                      <Heart className="h-4 w-4 mr-2" />
-                      React
-                    </DropdownMenuItem>
-                    {isOwnMessage && (
-                      <>
-                        <DropdownMenuItem
-                          onClick={() => onEditMessage(message)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDeleteMessage(message._id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div
+                  className="flex flex-col gap-2"
+                  onClick={e => onOpenEmojiPicker(message, e)}
+                >
+                  <SmilePlusIcon className="h-4 w-4 mr-2" />
+                </div>
               </div>
             )}
           </div>

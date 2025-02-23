@@ -51,6 +51,15 @@ const useTypingState = () => {
   const [typingUsers, setTypingUsers] = useState(new Map());
 
   const updateTypingState = useCallback(({ chatId, userId, isTyping }) => {
+    console.log(
+      'Find updateTypingState',
+      'isTyping: ',
+      isTyping,
+      'chatId: ',
+      chatId,
+      'userId: ',
+      userId
+    );
     setTypingUsers(prev => {
       const newMap = new Map(prev);
       const key = `${chatId}-${userId}`;

@@ -126,6 +126,7 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     };
 
     const handleTypingUpdate = ({ userId, isTyping, name }) => {
+      console.log(' handleTypingUpdate', userId, isTyping, name);
       clearTimeout(typingTimeoutRef.current[userId]);
 
       setTypingUsers(prev => {

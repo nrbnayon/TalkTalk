@@ -44,7 +44,6 @@ const MessageInputUI = ({
   isRecording,
   setIsRecording,
   recordingTime,
-  setRecordingTime,
   audioURL,
   setAudioURL,
   showVoiceModal,
