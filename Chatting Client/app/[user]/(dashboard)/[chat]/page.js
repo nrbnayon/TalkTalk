@@ -1,7 +1,7 @@
 // app/[user]/chat/[chatId]/page.js
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams } from 'next/navigation';
 import ChatHeader from '@/components/chat/ChatHeader';
@@ -18,11 +18,9 @@ import { useChatMessages } from '@/hooks/useChatMessages';
 import { LottieLoading } from '@/components/Animations/Loading';
 import { MessagesSquare } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
-import TypingIndicator from '@/components/chat/TypingIndicator';
 
 const ChatView = () => {
   const dispatch = useDispatch();
-  const messageContainerRef = useRef(null);
   const params = useParams();
   const chatId = params?.chat;
   const { user } = useSelector(state => state.auth);
@@ -31,8 +29,7 @@ const ChatView = () => {
   const loading = useSelector(selectMessagesLoading);
   const initialized = useSelector(state => state.messages.initialized[chatId]);
   const { joinChat, leaveChat } = useSocket();
-  const { sendMessage } = useChatMessages(chatId, messages);
-  const { typingUsers } = useSocket();
+  const { sendMessage, typingUsers } = useChatMessages(chatId, messages);
 
   const otherUser = useMemo(() => {
     return selectedChat?.users?.find(u => u._id !== user?._id);
@@ -99,20 +96,13 @@ const ChatView = () => {
   }
 
   return (
-    <div
-      ref={messageContainerRef}
-      className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden"
-    >
+    <div className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden">
       <ChatHeader otherUser={otherUser} />
       <MessageArea
         messages={messages}
         currentUser={user}
         chatId={chatId}
         typingUsers={typingUsers}
-      />
-      <TypingIndicator
-        typingUsers={typingUsers}
-        messageContainerRef={messageContainerRef}
       />
       <MessageInput chatId={chatId} sendMessage={sendMessage} />
     </div>

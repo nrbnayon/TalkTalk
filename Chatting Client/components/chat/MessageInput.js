@@ -1,7 +1,7 @@
 // components/chat/MessageInput.jsx
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import {
   editMessage,
   sendMessage,
@@ -15,7 +15,6 @@ const MAX_FILES = 5;
 const MessageInput = ({ chatId }) => {
   const dispatch = useDispatch();
   const [messageText, setMessageText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [files, setFiles] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [editingMessage, setEditingMessage] = useState(null);
@@ -32,8 +31,6 @@ const MessageInput = ({ chatId }) => {
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
   const textareaRef = useRef(null);
-
-  const { user } = useSelector(state => state.auth);
   const {
     sendMessage: socketSendMessage,
     startTyping,
@@ -87,41 +84,6 @@ const MessageInput = ({ chatId }) => {
     }
     return true;
   };
-
-  const handleTyping = useCallback(
-    ({ value }) => {
-      console.log('Get type value is message input:', value);
-      if (!isTyping) {
-        setIsTyping(true);
-        startTyping(chatId, {
-          userId: user._id,
-          name: user.name,
-          content: value,
-        });
-      }
-
-      // Clear existing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      // Set new timeout
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-        stopTyping(chatId);
-      }, 3000);
-    },
-    [chatId, isTyping, startTyping, stopTyping, user]
-  );
-
-  // Clean up typing timeout
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleFileSelect = useCallback(
     e => {
@@ -408,7 +370,8 @@ const MessageInput = ({ chatId }) => {
       stopRecording={stopRecording}
       formatTime={formatTime}
       handleSendMessage={handleSendMessage}
-      handleTyping={handleTyping}
+      // handleTyping={handleTyping}
+      chatId={chatId}
       textareaRef={textareaRef}
       fileInputRef={fileInputRef}
       isSending={isSending}
