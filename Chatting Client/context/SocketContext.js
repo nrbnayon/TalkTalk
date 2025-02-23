@@ -361,9 +361,14 @@ export const SocketProvider = ({ children }) => {
     }, []),
 
     startTyping: useCallback(
-      chatId => {
+      (chatId, typingData) => {
         if (!socketRef.current || !user?._id || !chatId) return;
-        socketRef.current.emit('typing-start', { chatId, userId: user._id });
+        socketRef.current.emit('typing-start', {
+          chatId,
+          userId: user._id,
+          name: user.name,
+          content: typingData.content,
+        });
       },
       [user]
     ),

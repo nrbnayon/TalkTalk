@@ -221,7 +221,7 @@ const MessageInputUI = ({
               value={messageText}
               onChange={e => {
                 setMessageText(e.target.value);
-                handleTyping();
+                handleTyping(e.target.value);
               }}
               placeholder={
                 editingMessage ? 'Edit your message...' : 'Type a message...'

@@ -17,12 +17,13 @@ import MessageList from './MessageList';
 import PinnedMessage from './PinnedMessage';
 import { Loader2 } from 'lucide-react';
 import { EmptyStateMessage, LottieLoading } from '../Animations/Loading';
+import { useChatMessages } from '@/hooks/useChatMessages';
 
 const MessagesArea = ({
   // messages = [],
   currentUser,
   chatId,
-  typingUsers = [],
+  // typingUsers = [],
 }) => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -49,7 +50,12 @@ const MessagesArea = ({
   const { messageRefs, initializeMessageRefs, scrollToMessage } =
     useMessageScroll();
   const meta = useSelector(state => selectMessagesMeta(state, chatId));
-  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
+  const messages = useSelector(state => selectMessagesByChatId(state, chatId)); 
+
+  
+
+    const {  typingUsers } = useChatMessages(chatId, messages);
+  
   // Initialize messages
   useEffect(() => {
     if (chatId && chatId !== 'undefined') {

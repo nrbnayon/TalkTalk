@@ -18,6 +18,9 @@ interface ICallSignal {
 interface ITypingData {
   chatId: string;
   userId: string;
+  name: string;
+  isTyping: boolean;
+  content: string;
 }
 
 interface IMessageReadData {
@@ -170,10 +173,10 @@ class SocketHelper {
   }
 
   private static handleTypingStart(socket: Socket, data: ITypingData) {
-    const { chatId, userId } = data;
+    const { chatId, userId, name, content } = data;
     const typingKey = `${chatId}-${userId}`;
 
-    this.logInfo(`User ${userId} started typing in chat ${chatId}`);
+    this.logInfo(`User ${name} started typing in chat ${chatId}, Content: ${content}...`);
 
     if (this.typingUsers.has(typingKey)) {
       clearTimeout(this.typingUsers.get(typingKey));
@@ -182,6 +185,8 @@ class SocketHelper {
     socket.to(chatId).emit('typing-update', {
       chatId,
       userId,
+      name,
+      content,
       isTyping: true,
     });
 
@@ -189,6 +194,7 @@ class SocketHelper {
       socket.to(chatId).emit('typing-update', {
         chatId,
         userId,
+        name,
         isTyping: false,
       });
       this.typingUsers.delete(typingKey);

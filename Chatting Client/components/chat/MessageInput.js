@@ -88,23 +88,31 @@ const MessageInput = ({ chatId }) => {
     return true;
   };
 
-  const handleTyping = useCallback(() => {
-    if (!isTyping) {
-      setIsTyping(true);
-      startTyping(chatId);
-    }
+  const handleTyping = useCallback(
+    ({ value }) => {
+      console.log('Get type value is message input:', value);
+      if (!isTyping) {
+        setIsTyping(true);
+        startTyping(chatId, {
+          userId: user._id,
+          name: user.name,
+          content: value,
+        });
+      }
 
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
 
-    // Set new timeout
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      stopTyping(chatId);
-    }, 3000);
-  }, [chatId, isTyping, startTyping, stopTyping]);
+      // Set new timeout
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        stopTyping(chatId);
+      }, 3000);
+    },
+    [chatId, isTyping, startTyping, stopTyping, user]
+  );
 
   // Clean up typing timeout
   useEffect(() => {
