@@ -15,7 +15,10 @@ const UserHome = () => {
   const { onlineUsers } = useSocket();
 
   // Check if the current user is online
-  const isOnline = onlineUsers.some(onlineUser => onlineUser._id === user._id);
+  const isOnline =
+    user ||
+    (Array.isArray(onlineUsers) &&
+      onlineUsers.some(onlineUser => onlineUser._id === user._id));
 
   // console.log('Online Users:', onlineUsers, isOnline, user); //why current usr isOnline need more time
 

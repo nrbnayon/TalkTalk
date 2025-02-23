@@ -49,10 +49,7 @@ const MessagesArea = ({
   const { messageRefs, initializeMessageRefs, scrollToMessage } =
     useMessageScroll();
   const meta = useSelector(state => selectMessagesMeta(state, chatId));
-
   const messages = useSelector(state => selectMessagesByChatId(state, chatId));
-  console.log('[MessageArea] Messages from selector:', messages);
-
   // Initialize messages
   useEffect(() => {
     if (chatId && chatId !== 'undefined') {

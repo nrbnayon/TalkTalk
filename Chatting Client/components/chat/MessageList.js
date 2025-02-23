@@ -208,13 +208,13 @@ const MessageList = ({
 
             <div
               className={cn(
-                'px-4 py-2.5 shadow-sm',
+                'px-4 py-1 shadow-sm',
                 message.isDeleted
                   ? 'bg-gray-400 text-gray-700 italic'
                   : isOwnMessage &&
                     !(message.attachments && message.attachments.length > 0)
-                  ? 'bg-blue-500 text-white rounded-2xl rounded-tr-sm'
-                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tr-sm'
+                  ? 'bg-blue-500 text-white rounded-2xl rounded-tr-sm mt-1'
+                  : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm'
               )}
             >
               {message.content && message.content.length > 0 && (
