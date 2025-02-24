@@ -1,8 +1,16 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const TypingIndicator = ({ typingUsers, messageContainerRef }) => {
   const indicatorRef = useRef(null);
+  const [latestContent, setLatestContent] = useState('');
+
+  useEffect(() => {
+    if (typingUsers.length > 0) {
+      const newContent = typingUsers[typingUsers.length - 1]?.content || '';
+      setLatestContent(newContent);
+    }
+  }, [typingUsers]);
 
   useEffect(() => {
     if (
@@ -20,31 +28,29 @@ const TypingIndicator = ({ typingUsers, messageContainerRef }) => {
   return (
     <div
       ref={indicatorRef}
-      className="flex flex-col gap-1 px-4 py-2 bg-gray-100 rounded-lg max-w-[80%] animate-fade-in fixed bottom-24 left-4"
+      className="px-4 py-2 bg-gray-100 rounded-lg animate-fade-in fixed bottom-20 z-100 max-w-[60%] right-4"
     >
-      {typingUsers.map((user, index) => (
-        <div key={user.userId} className="flex items-center gap-2">
-          <span className="font-medium text-gray-700">{user.name}</span>
-          <span className="text-gray-600 text-sm">
-            is typing:{' '}
-            {user.content && <span className="italic">{user.content}</span>}
-          </span>
-          <span className="flex gap-1">
-            <span
-              className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
-              style={{ animationDelay: '0ms' }}
-            />
-            <span
-              className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
-              style={{ animationDelay: '150ms' }}
-            />
-            <span
-              className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
-              style={{ animationDelay: '300ms' }}
-            />
-          </span>
-        </div>
-      ))}
+      <div className="flex items-center gap-2">
+        <span className="font-medium text-gray-700">{typingUsers[0].name}</span>
+        <span className="text-gray-600">is typing: </span>
+        <span className="text-gray-600 italic overflow-hidden text-ellipsis">
+          {latestContent}
+        </span>
+        <span className="flex gap-1 items-center flex-shrink-0">
+          <span
+            className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
+            style={{ animationDelay: '0ms' }}
+          />
+          <span
+            className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
+            style={{ animationDelay: '150ms' }}
+          />
+          <span
+            className="w-1 h-1 bg-gray-500 rounded-full animate-bounce"
+            style={{ animationDelay: '300ms' }}
+          />
+        </span>
+      </div>
     </div>
   );
 };

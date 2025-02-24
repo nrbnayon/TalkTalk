@@ -33,11 +33,8 @@ const MessageInput = ({ chatId }) => {
   const textareaRef = useRef(null);
   const {
     sendMessage: socketSendMessage,
-    startTyping,
-    stopTyping,
     socket,
   } = useSocket();
-  const typingTimeoutRef = useRef(null);
 
   // Add event listeners for reply and edit
   useEffect(() => {
@@ -370,7 +367,6 @@ const MessageInput = ({ chatId }) => {
       stopRecording={stopRecording}
       formatTime={formatTime}
       handleSendMessage={handleSendMessage}
-      // handleTyping={handleTyping}
       chatId={chatId}
       textareaRef={textareaRef}
       fileInputRef={fileInputRef}

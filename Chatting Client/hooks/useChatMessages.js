@@ -125,14 +125,14 @@ export const useChatMessages = (chatId, initialMessages = []) => {
       }
     };
 
-    const handleTypingUpdate = ({ userId, isTyping, name }) => {
-      console.log(' handleTypingUpdate', userId, isTyping, name);
+    const handleTypingUpdate = ({ userId, isTyping, name, content }) => {
+      console.log(' handleTypingUpdate', userId, isTyping, name, content);
       clearTimeout(typingTimeoutRef.current[userId]);
 
       setTypingUsers(prev => {
         const newSet = new Set(prev);
         if (isTyping) {
-          newSet.add({ userId, name });
+          newSet.add({ userId, name, content });
           typingTimeoutRef.current[userId] = setTimeout(() => {
             setTypingUsers(
               current =>

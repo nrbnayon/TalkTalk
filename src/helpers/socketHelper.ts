@@ -87,22 +87,6 @@ class SocketHelper {
     }
   }
 
-  // private static handleJoinChat(
-  //   socket: Socket,
-  //   data: { chatId: string; user: any }
-  // ) {
-  //   const { chatId, user } = data;
-  //   if (!chatId) {
-  //     this.logError('Invalid chatId provided for joining chat room');
-  //     return;
-  //   }
-
-  //   socket.join(chatId);
-  //   this.logInfo(
-  //     `User ${user?._id} (${user?.name}) joined chat room: ${chatId}`
-  //   );
-  // }
-
   private static handleJoinChat(
     socket: Socket,
     data: { chatId: string; user: any }
