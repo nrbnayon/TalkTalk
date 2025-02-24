@@ -258,31 +258,98 @@ const messageSlice = createSlice({
         );
       }
     },
+    updateMessageReadStatus: (state, action) => {
+      const { messageId, chatId, userId } = action.payload;
+      console.log('[messageSlice] Updating read status:', {
+        messageId,
+        chatId,
+        userId,
+      });
+
+      if (state.messagesByChat[chatId]) {
+        const message = state.messagesByChat[chatId].find(
+          msg => msg._id === messageId
+        );
+
+        if (message) {
+          // Create new readBy array if it doesn't exist
+          if (!message.readBy) {
+            message.readBy = [];
+          }
+
+          // Add user to readBy if not already present
+          if (!message.readBy.some(reader => reader._id === userId)) {
+            message.readBy.push({ _id: userId });
+            console.log('[messageSlice] Updated readBy:', message.readBy);
+          }
+        }
+      }
+    },
+
     updateMessage: (state, action) => {
       const message = action.payload;
       const chatId = message.chat?._id || message.chat;
       const messageId = message._id;
 
+      console.log('[messageSlice] Updating message:', {
+        messageId,
+        chatId,
+        content: message.content,
+        isEdited: message.isEdited,
+      });
+
       if (state.messagesByChat[chatId]) {
         const index = state.messagesByChat[chatId].findIndex(
           msg => msg._id === messageId
         );
+
         if (index !== -1) {
+          // Preserve existing message data and merge with updates
           state.messagesByChat[chatId][index] = {
             ...state.messagesByChat[chatId][index],
             ...message,
           };
+
+          console.log('[messageSlice] Message updated successfully');
         }
       }
     },
+
     deleteMessage: (state, action) => {
       const { chatId, messageId } = action.payload;
+      console.log('[messageSlice] Processing delete message:', {
+        messageId,
+        chatId,
+      });
+
       if (state.messagesByChat[chatId]) {
-        state.messagesByChat[chatId] = state.messagesByChat[chatId].filter(
-          msg => msg._id !== messageId
+        const messageIndex = state.messagesByChat[chatId].findIndex(
+          msg => msg._id === messageId
         );
+
+        if (messageIndex !== -1) {
+          // Update the message in place instead of filtering
+          state.messagesByChat[chatId][messageIndex] = {
+            ...state.messagesByChat[chatId][messageIndex],
+            isDeleted: true,
+            content: 'This message was deleted',
+            deletedAt: new Date().toISOString(),
+          };
+          console.log('[messageSlice] Message marked as deleted successfully');
+        }
       }
     },
+
+    // updateMessageReadStatus: (state, action) => {
+    //   const { messageId, chatId, userId } = action.payload;
+    //   const messages = state.messagesByChat[chatId];
+    //   if (messages) {
+    //     const message = messages.find(msg => msg._id === messageId);
+    //     if (message && !message.readBy?.some(reader => reader._id === userId)) {
+    //       message.readBy = [...(message.readBy || []), { _id: userId }];
+    //     }
+    //   }
+    // },
     clearMessages: (state, action) => {
       const chatId = action.payload;
       delete state.messagesByChat[chatId];
@@ -373,6 +440,8 @@ const messageSlice = createSlice({
 
       // Mark as Read
       .addCase(markMessageAsRead.fulfilled, (state, action) => {
+        // This extra reducer is used when marking read from the current user.
+        // For other users’ updates we now use the synchronous updateMessageReadStatus action.
         const { messageId, chatId, readData } = action.payload;
         if (state.messagesByChat[chatId]) {
           const messageIndex = state.messagesByChat[chatId].findIndex(
@@ -383,6 +452,17 @@ const messageSlice = createSlice({
           }
         }
       })
+      // .addCase(markMessageAsRead.fulfilled, (state, action) => {
+      //   const { messageId, chatId, readData } = action.payload;
+      //   if (state.messagesByChat[chatId]) {
+      //     const messageIndex = state.messagesByChat[chatId].findIndex(
+      //       msg => msg._id === messageId
+      //     );
+      //     if (messageIndex !== -1) {
+      //       state.messagesByChat[chatId][messageIndex].readBy = readData.readBy;
+      //     }
+      //   }
+      // })
 
       // Pin Message
       .addCase(pinMessage.fulfilled, (state, action) => {
@@ -420,8 +500,13 @@ const messageSlice = createSlice({
   },
 });
 
-export const { addMessage, updateMessage, deleteMessage, clearMessages } =
-  messageSlice.actions;
+export const {
+  addMessage,
+  updateMessage,
+  deleteMessage,
+  updateMessageReadStatus,
+  clearMessages,
+} = messageSlice.actions;
 
 export const selectMessagesByChatId = createSelector(
   [state => state.messages.messagesByChat, (state, chatId) => chatId],
@@ -439,41 +524,3 @@ export const selectMessagesMeta = (state, chatId) =>
 export const selectMessagesError = state => state.messages.error;
 
 export default messageSlice.reducer;
-
-// In messageSlice.js
-
-// export const addMessage = createAsyncThunk(
-//   'messages/addMessage',
-//   async (message, { getState }) => {
-//     const chatId = message.chat?._id || message.chat;
-//     const state = getState();
-//     const existingMessages = state.messages.messagesByChat[chatId] || [];
-
-//     // Check if message already exists
-//     const messageExists = existingMessages.some(msg => msg._id === message._id);
-
-//     if (!messageExists) {
-//       return message;
-//     }
-//     return null;
-//   }
-// );
-
-// // In the reducer
-// extraReducers: builder => {
-//   builder
-//     .addCase(addMessage.fulfilled, (state, action) => {
-//       if (action.payload) {
-//         const message = action.payload;
-//         const chatId = message.chat?._id || message.chat;
-
-//         if (!state.messagesByChat[chatId]) {
-//           state.messagesByChat[chatId] = [];
-//         }
-
-//         // Add new message and ensure correct order
-//         state.messagesByChat[chatId] = [...state.messagesByChat[chatId], message]
-//           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-//       }
-//     });
-// };

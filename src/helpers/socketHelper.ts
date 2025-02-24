@@ -68,15 +68,42 @@ class SocketHelper {
     }
   }
 
+  // private static async handleUserOnline(
+  //   socket: Socket,
+  //   io: Server,
+  //   userId: string
+  // ) {
+  //   try {
+  //     this.connectedSockets.set(socket.id, userId);
+  //     this.logInfo(`User ${userId} is now online`);
+
+  //     await UserService.updateUserOnlineStatus(userId, true);
+  //     const onlineUsers = await UserService.getOnlineUsers();
+  //     io.emit('online-users-update', onlineUsers);
+
+  //     this.logInfo(`Online users found: ${onlineUsers.length}`);
+  //   } catch (error) {
+  //     this.logError(`Error setting user ${userId} online:`, error);
+  //   }
+  // }
+
   private static async handleUserOnline(
     socket: Socket,
     io: Server,
     userId: string
   ) {
     try {
+      // Save the mapping immediately
       this.connectedSockets.set(socket.id, userId);
       this.logInfo(`User ${userId} is now online`);
 
+      // Optimistically update online users based on in-memory connectedSockets
+      const onlineUsersOptimistic = Array.from(
+        new Set(this.connectedSockets.values())
+      );
+      io.emit('online-users-update', onlineUsersOptimistic);
+
+      // Then update the DB asynchronously and emit the updated list
       await UserService.updateUserOnlineStatus(userId, true);
       const onlineUsers = await UserService.getOnlineUsers();
       io.emit('online-users-update', onlineUsers);
@@ -110,13 +137,80 @@ class SocketHelper {
     );
   }
 
+  // private static handleNewMessage(socket: Socket, message: IMessage) {
+  //   if (!message.chat) {
+  //     this.logError('Invalid message format');
+  //     return;
+  //   }
+
+  //   // Extract chatId properly handling both string and object cases
+  //   const chatId =
+  //     typeof message.chat === 'string'
+  //       ? message.chat
+  //       : typeof message.chat === 'object' && message.chat._id
+  //       ? message.chat._id.toString()
+  //       : message.chat.toString();
+
+  //   // Log the actual chatId instead of the object
+  //   console.log(
+  //     `New message received in chat: ${chatId}`,
+  //     {
+  //       messageId: message._id,
+  //       senderId: message.sender?._id,
+  //       content:
+  //         message.content?.substring(0, 50) +
+  //         (message.content?.length > 50 ? '...' : ''),
+  //     },
+  //     'chat id',
+  //     chatId
+  //   );
+  //   console.log(
+  //     'New message received for realtime broadcast, Message data::',
+  //     message
+  //   );
+  //   socket.to(chatId).emit('message-received', message);
+
+  //   // Log with the actual chatId
+  //   this.logInfo(`Message broadcast in chat: ${chatId}`);
+  // }
+
+  // private static handleMessageRead(socket: Socket, data: IMessageReadData) {
+  //   const { messageId, chatId, userId } = data;
+  //   this.logInfo(`Message ${messageId} marked as read by user ${userId}`);
+
+  //   socket
+  //     .to(chatId)
+  //     .emit('message-read-update', { messageId, userId, chatId });
+  // }
+
+  private static handleMessageRead(socket: Socket, data: IMessageReadData) {
+    const { messageId, chatId, userId } = data;
+
+    // Log for debugging
+    console.log('[SocketHelper] Message read event:', {
+      messageId,
+      chatId,
+      userId,
+      socketId: socket.id,
+    });
+
+    // Broadcast to all users in the chat room
+    socket.to(chatId).emit('message-read-update', {
+      messageId,
+      userId,
+      chatId,
+      timestamp: new Date(),
+    });
+
+    this.logInfo(`Message ${messageId} marked as read by user ${userId}`);
+  }
+
   private static handleNewMessage(socket: Socket, message: IMessage) {
     if (!message.chat) {
       this.logError('Invalid message format');
       return;
     }
 
-    // Extract chatId properly handling both string and object cases
     const chatId =
       typeof message.chat === 'string'
         ? message.chat
@@ -124,43 +218,24 @@ class SocketHelper {
         ? message.chat._id.toString()
         : message.chat.toString();
 
-    // Log the actual chatId instead of the object
-    console.log(
-      `New message received in chat: ${chatId}`,
-      {
-        messageId: message._id,
-        senderId: message.sender?._id,
-        content:
-          message.content?.substring(0, 50) +
-          (message.content?.length > 50 ? '...' : ''),
-      },
-      'chat id',
-      chatId
-    );
-    console.log(
-      'New message received for realtime broadcast, Message data::',
-      message
-    );
+    // Log for debugging
+    console.log('[SocketHelper] Broadcasting new message:', {
+      messageId: message._id,
+      chatId,
+      senderId: message.sender?._id,
+    });
+
+    // Broadcast to all users in chat room
     socket.to(chatId).emit('message-received', message);
-
-    // Log with the actual chatId
-    this.logInfo(`Message broadcast in chat: ${chatId}`);
-  }
-
-  private static handleMessageRead(socket: Socket, data: IMessageReadData) {
-    const { messageId, chatId, userId } = data;
-    this.logInfo(`Message ${messageId} marked as read by user ${userId}`);
-
-    socket
-      .to(chatId)
-      .emit('message-read-update', { messageId, userId, chatId });
   }
 
   private static handleTypingStart(socket: Socket, data: ITypingData) {
     const { chatId, userId, name, content } = data;
     const typingKey = `${chatId}-${userId}`;
 
-    this.logInfo(`User ${name} started typing in chat ${chatId}, Content: ${content}...`);
+    this.logInfo(
+      `User ${name} started typing in chat ${chatId}, Content: ${content}...`
+    );
 
     if (this.typingUsers.has(typingKey)) {
       clearTimeout(this.typingUsers.get(typingKey));
@@ -369,6 +444,45 @@ class SocketHelper {
     this.logInfo(`User ${userId} left chat room: ${chatId}`);
   }
 
+  // private static async handleDeleteMessage(
+  //   socket: Socket,
+  //   io: Server,
+  //   data: { messageId: string; chatId: string }
+  // ) {
+  //   const { messageId, chatId } = data;
+
+  //   try {
+  //     // 1. Update the message in the database (e.g., mark as deleted)
+  //     // const updatedMessage = await MessageService.markMessageAsDeleted(
+  //     //   messageId
+  //     // );
+
+  //     // if (!updatedMessage) {
+  //     //   this.logError(`Message ${messageId} not found for deletion`);
+  //     //   return;
+  //     // }
+
+  //     this.logInfo(`Message ${messageId} deleted in chat ${chatId}`);
+
+  //     // 2. Emit the 'message-deleted' event to all clients in the chat
+  //     io.to(chatId).emit('message-deleted', { messageId, chatId }); // Use io.to to emit to the room
+  //   } catch (error) {
+  //     this.logError(`Error deleting message ${messageId}:`, error);
+  //     // Optionally, emit an error event to the specific client
+  //     if (error instanceof Error) {
+  //       socket.emit('delete-message-error', {
+  //         messageId,
+  //         error: error.message,
+  //       });
+  //     } else {
+  //       socket.emit('delete-message-error', {
+  //         messageId,
+  //         error: 'Unknown error',
+  //       });
+  //     }
+  //   }
+  // }
+
   private static async handleDeleteMessage(
     socket: Socket,
     io: Server,
@@ -377,34 +491,23 @@ class SocketHelper {
     const { messageId, chatId } = data;
 
     try {
-      // 1. Update the message in the database (e.g., mark as deleted)
-      // const updatedMessage = await MessageService.markMessageAsDeleted(
-      //   messageId
-      // );
+      // Log for debugging
+      console.log('[SocketHelper] Message delete request:', {
+        messageId,
+        chatId,
+        socketId: socket.id,
+      });
 
-      // if (!updatedMessage) {
-      //   this.logError(`Message ${messageId} not found for deletion`);
-      //   return;
-      // }
+      // Broadcast to all users in chat room including sender
+      io.to(chatId).emit('message-deleted', {
+        messageId,
+        chatId,
+        timestamp: new Date(),
+      });
 
       this.logInfo(`Message ${messageId} deleted in chat ${chatId}`);
-
-      // 2. Emit the 'message-deleted' event to all clients in the chat
-      io.to(chatId).emit('message-deleted', { messageId, chatId }); // Use io.to to emit to the room
     } catch (error) {
       this.logError(`Error deleting message ${messageId}:`, error);
-      // Optionally, emit an error event to the specific client
-      if (error instanceof Error) {
-        socket.emit('delete-message-error', {
-          messageId,
-          error: error.message,
-        });
-      } else {
-        socket.emit('delete-message-error', {
-          messageId,
-          error: 'Unknown error',
-        });
-      }
     }
   }
 
@@ -457,6 +560,25 @@ class SocketHelper {
       socket.on('message-read', (data: IMessageReadData) =>
         this.handleMessageRead(socket, data)
       );
+      socket.on('message-updated', (updatedMessage: any) => {
+        // Determine the chatId from the message (handle both string and object cases)
+        const chatId =
+          typeof updatedMessage.chat === 'string'
+            ? updatedMessage.chat
+            : updatedMessage.chat && updatedMessage.chat._id
+            ? updatedMessage.chat._id.toString()
+            : '';
+        if (!chatId) {
+          SocketHelper.logError('Invalid chat id in message-updated event');
+          return;
+        }
+        SocketHelper.logInfo(
+          `Broadcasting updated message in chat: ${chatId}`,
+          updatedMessage
+        );
+        // Broadcast the updated message to all other sockets in the chat room
+        socket.to(chatId).emit('message-updated', updatedMessage);
+      });
       socket.on('typing-start', (data: ITypingData) =>
         this.handleTypingStart(socket, data)
       );

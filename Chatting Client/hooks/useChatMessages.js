@@ -6,6 +6,7 @@ import {
   updateMessage,
   deleteMessage,
   addMessage,
+  updateMessageReadStatus,
 } from '../redux/features/messages/messageSlice';
 
 const TYPING_TIMEOUT = 3000;
@@ -94,6 +95,8 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     if (!socketRef.current || !chatId) return;
 
     const handleNewMessage = message => {
+      console.log('[useChatMessages] New message received:', message);
+
       if (message.chat._id === chatId || message.chat === chatId) {
         dispatch(addMessage({ message }));
       } else {
@@ -102,26 +105,63 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     };
 
     const handleMessageUpdate = updatedMessage => {
+      console.log('[useChatMessages] Message update received:', updatedMessage);
+
       if (updatedMessage.chat.toString() === chatId) {
-        setMessages(prev =>
-          prev.map(msg =>
-            msg._id === updatedMessage._id ? updatedMessage : msg
-          )
-        );
         dispatch(updateMessage(updatedMessage));
       }
     };
 
+    // const handleMessageUpdate = updatedMessage => {
+    //   if (updatedMessage.chat.toString() === chatId) {
+    //     setMessages(prev =>
+    //       prev.map(msg =>
+    //         msg._id === updatedMessage._id ? updatedMessage : msg
+    //       )
+    //     );
+    //     dispatch(updateMessage(updatedMessage));
+    //   }
+    // };
+
+    // const handleMessageDelete = data => {
+    //   if (data.chatId === chatId) {
+    //     setMessages(prev =>
+    //       prev.map(msg =>
+    //         msg._id === data.messageId
+    //           ? { ...msg, isDeleted: true, content: 'This message was deleted' }
+    //           : msg
+    //       )
+    //     );
+    //     dispatch(deleteMessage({ chatId, messageId: data.messageId }));
+    //   }
+    // };
+
+    // const handleMessageDelete = data => {
+    //   console.log('[useChatMessages] Message delete received:', data);
+
+    //   if (data.chatId === chatId) {
+    //     dispatch(deleteMessage({ chatId, messageId: data.messageId }));
+    //   }
+    // };
+
     const handleMessageDelete = data => {
+      console.log('[useChatMessages] Message delete received:', data);
       if (data.chatId === chatId) {
-        setMessages(prev =>
-          prev.map(msg =>
-            msg._id === data.messageId
-              ? { ...msg, isDeleted: true, content: 'This message was deleted' }
-              : msg
-          )
-        );
         dispatch(deleteMessage({ chatId, messageId: data.messageId }));
+      }
+    };
+
+    const handleMessageRead = data => {
+      console.log('[useChatMessages] Message read update:', data);
+
+      if (data.chatId === chatId) {
+        dispatch(
+          updateMessageReadStatus({
+            messageId: data.messageId,
+            chatId: data.chatId,
+            userId: data.userId,
+          })
+        );
       }
     };
 
@@ -155,6 +195,7 @@ export const useChatMessages = (chatId, initialMessages = []) => {
       'message-updated': handleMessageUpdate,
       'message-deleted': handleMessageDelete,
       'typing-update': handleTypingUpdate,
+      'message-read-update': handleMessageRead,
     };
 
     // Register event listeners

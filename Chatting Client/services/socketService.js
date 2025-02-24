@@ -8,7 +8,7 @@ class SocketService {
     this.apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     this.maxReconnectAttempts = 5;
     this.reconnectAttempts = 0;
-    this.connectionTimeout = 30000;
+    this.connectionTimeout = 3000;
     this.reconnectInterval = null;
     this.pingInterval = null;
     this.lastPingTime = null;

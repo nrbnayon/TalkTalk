@@ -15,12 +15,13 @@ import {
   updateMessage,
   markMessageAsRead,
   deleteMessage,
+  updateMessageReadStatus,
 } from '@/redux/features/messages/messageSlice';
 
 // Constants
 const TYPING_TIMEOUT = 3000;
 const CALL_END_CLEANUP_TIMEOUT = 3000;
-const ONLINE_USERS_FETCH_INTERVAL = 30000;
+const ONLINE_USERS_FETCH_INTERVAL = 3000;
 
 // Initial context state
 const initialContextState = {
@@ -282,8 +283,18 @@ export const SocketProvider = ({ children }) => {
         dispatch(deleteMessage(data));
       },
       'message-read-update': data => {
+        dispatch(
+          updateMessageReadStatus({
+            messageId: data.messageId,
+            chatId: data.chatId,
+            userId: data.userId,
+          })
+        );
+      },
+      'message-read-update': data => {
         dispatch(markMessageAsRead(data));
       },
+
       'typing-update': updateTypingState,
       'call-incoming': callSession => {
         setIncomingCall(callSession);
