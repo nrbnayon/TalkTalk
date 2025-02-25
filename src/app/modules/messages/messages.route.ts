@@ -44,13 +44,6 @@ router.patch(
   MessageController.markMessageAsRead
 );
 
-router.patch(
-  '/:messageId/pin',
-  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
-  validateRequest(MessageValidation.messageIdParamSchema),
-  MessageController.togglePinMessage
-);
-
 router.get(
   '/search',
   auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
@@ -63,6 +56,13 @@ router.get(
   auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
   validateRequest(MessageValidation.getChatMessagesZodSchema),
   MessageController.getUnseenMessageCount
+);
+
+router.patch(
+  '/:messageId/pin',
+  auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
+  validateRequest(MessageValidation.messageIdParamSchema),
+  MessageController.togglePinMessage
 );
 
 router.post(

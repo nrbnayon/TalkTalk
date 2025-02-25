@@ -21,7 +21,8 @@ import {
 // Constants
 const TYPING_TIMEOUT = 3000;
 const CALL_END_CLEANUP_TIMEOUT = 3000;
-const ONLINE_USERS_FETCH_INTERVAL = 3000;
+const ONLINE_USERS_FETCH_INTERVAL = 10000; // Increase interval for fallback
+const SOCKET_RECONNECT_TIMEOUT = 5000;
 
 // Initial context state
 const initialContextState = {
@@ -43,6 +44,7 @@ const initialContextState = {
   incomingCall: null,
   currentCall: null,
   isUserOnline: () => false,
+  connectionState: 'disconnected',
 };
 
 const SocketContext = createContext(initialContextState);
@@ -172,28 +174,67 @@ const useCallState = (socket, user) => {
 // Custom hook for managing online users
 const useOnlineUsers = (apiUrl, token) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [lastSocketUpdate, setLastSocketUpdate] = useState(0);
+  const [isSocketWorking, setIsSocketWorking] = useState(false);
 
-  const fetchOnlineUsers = useCallback(async () => {
-    try {
-      const response = await fetch(`${apiUrl}/api/v1/user/online-users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
+  const fetchOnlineUsers = useCallback(
+    async (force = false) => {
+      // Only fetch via HTTP if socket isn't working or force is true
+      if (!isSocketWorking || force) {
+        try {
+          console.log(
+            '[SocketContext] Fallback: Fetching online users via HTTP'
+          );
+          const response = await fetch(`${apiUrl}/api/v1/user/online-users`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await response.json();
 
-      if (data.success) {
-        setOnlineUsers(data.data);
+          if (data.success) {
+            setOnlineUsers(data.data);
+          }
+        } catch (error) {
+          console.error('[SocketContext] Error fetching online users:', error);
+        }
       }
-    } catch (error) {
-      console.error('[SocketContext] Error fetching online users:', error);
-    }
-  }, [apiUrl, token]);
+    },
+    [apiUrl, token, isSocketWorking]
+  );
+
+  const updateOnlineUsersViaSocket = useCallback(users => {
+    setOnlineUsers(users);
+    setLastSocketUpdate(Date.now());
+    setIsSocketWorking(true);
+  }, []);
 
   const isUserOnline = useCallback(
     userId => onlineUsers.some(user => user._id === userId),
     [onlineUsers]
   );
 
-  return { onlineUsers, setOnlineUsers, fetchOnlineUsers, isUserOnline };
+  // If we haven't received a socket update in a while, reset isSocketWorking
+  useEffect(() => {
+    const checkSocketAlive = setInterval(() => {
+      if (
+        Date.now() - lastSocketUpdate > SOCKET_RECONNECT_TIMEOUT &&
+        lastSocketUpdate !== 0
+      ) {
+        setIsSocketWorking(false);
+      }
+    }, SOCKET_RECONNECT_TIMEOUT);
+
+    return () => clearInterval(checkSocketAlive);
+  }, [lastSocketUpdate]);
+
+  return {
+    onlineUsers,
+    setOnlineUsers,
+    fetchOnlineUsers,
+    updateOnlineUsersViaSocket,
+    isUserOnline,
+    isSocketWorking,
+    setIsSocketWorking,
+  };
 };
 
 export const SocketProvider = ({ children }) => {
@@ -201,10 +242,19 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
   const { user, token } = useSelector(state => state.auth);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
   const [typingUsers, updateTypingState] = useTypingState();
-  const { onlineUsers, setOnlineUsers, fetchOnlineUsers, isUserOnline } =
-    useOnlineUsers(apiUrl, token);
+  const [connectionState, setConnectionState] = useState('disconnected');
+
+  const {
+    onlineUsers,
+    setOnlineUsers,
+    fetchOnlineUsers,
+    updateOnlineUsersViaSocket,
+    isUserOnline,
+    isSocketWorking,
+    setIsSocketWorking,
+  } = useOnlineUsers(apiUrl, token);
+
   const {
     incomingCall,
     setIncomingCall,
@@ -217,36 +267,68 @@ export const SocketProvider = ({ children }) => {
     sendCallSignal,
   } = useCallState(socketRef.current, user);
 
-  // Socket initialization
   useEffect(() => {
     let isMounted = true;
+    let fallbackInterval = null;
 
     const initializeSocket = async () => {
       if (!user?._id || !token) return;
 
       try {
+        console.log('[SocketContext] Initializing socket connection');
         const newSocket = await socketServiceInstance.connect(token);
 
         if (isMounted) {
           socketRef.current = newSocket;
-          socketServiceInstance.setUserOnline(user._id);
-          fetchOnlineUsers();
+
+          // Setup connection state listeners
+          newSocket.on('connect', () => {
+            console.log('[SocketContext] Socket connected');
+            setConnectionState('connected');
+            setIsSocketWorking(true);
+            socketServiceInstance.setUserOnline(user._id);
+            // Fetch initial online users after connection
+            fetchOnlineUsers(true);
+          });
+
+          newSocket.on('disconnect', () => {
+            console.log('[SocketContext] Socket disconnected');
+            setConnectionState('disconnected');
+            setIsSocketWorking(false);
+          });
+
+          newSocket.on('reconnecting', () => {
+            console.log('[SocketContext] Socket reconnecting');
+            setConnectionState('reconnecting');
+          });
+
+          if (newSocket.connected) {
+            socketServiceInstance.setUserOnline(user._id);
+            fetchOnlineUsers(true);
+          }
         }
       } catch (error) {
         console.error('[SocketContext] Socket connection error:', error);
+        setIsSocketWorking(false);
       }
     };
 
     if (user && token) {
       initializeSocket();
-      const onlineUsersInterval = setInterval(
-        fetchOnlineUsers,
-        ONLINE_USERS_FETCH_INTERVAL
-      );
+
+      // Fallback interval - only fetches if socket isn't working
+      fallbackInterval = setInterval(() => {
+        if (!isSocketWorking) {
+          console.log(
+            '[SocketContext] Using fallback HTTP polling for online users'
+          );
+          fetchOnlineUsers();
+        }
+      }, ONLINE_USERS_FETCH_INTERVAL);
 
       return () => {
         isMounted = false;
-        clearInterval(onlineUsersInterval);
+        clearInterval(fallbackInterval);
         if (socketRef.current) {
           socketServiceInstance.disconnect();
           socketRef.current = null;
@@ -256,8 +338,16 @@ export const SocketProvider = ({ children }) => {
 
     return () => {
       isMounted = false;
+      if (fallbackInterval) clearInterval(fallbackInterval);
     };
-  }, [apiUrl, user, token, fetchOnlineUsers]);
+  }, [
+    apiUrl,
+    user,
+    token,
+    fetchOnlineUsers,
+    isSocketWorking,
+    setIsSocketWorking,
+  ]);
 
   useEffect(() => {
     if (!socketRef.current) return;
@@ -442,6 +532,7 @@ export const SocketProvider = ({ children }) => {
     incomingCall,
     currentCall,
     isUserOnline,
+    connectionState,
     ...socketActions,
     initiateCall,
     acceptCall,
