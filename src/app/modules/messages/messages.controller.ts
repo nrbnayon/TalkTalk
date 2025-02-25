@@ -123,7 +123,12 @@ const togglePinMessage = catchAsync(async (req: Request, res: Response) => {
   // Emit a real-time update to all clients in the chat room
   const io = req.app.get('io');
   if (io) {
+    console.log(`[MessageController] Emitting socket event to chat: ${chatId}`);
     io.to(chatId).emit('message-updated', result);
+  } else {
+    console.log(
+      `[MessageController] Socket not available for real-time update`
+    );
   }
 
   sendResponse(res, {
@@ -138,15 +143,23 @@ const toggleReaction = catchAsync(async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { emoji } = req.body;
 
-  console.log('Getting reaction:::', emoji, messageId);
-
+  console.log('Toggle reaction:', emoji, messageId);
   const result = await MessageService.toggleReaction(
     messageId,
     req.user.id,
     emoji
   );
 
-  console.log('Getting reaction result:::', result);
+  // Emit real-time update to all clients in the chat room
+  const io = req.app.get('io');
+  if (io && result.chat) {
+    // Ensure chatId is a string even if populated
+    const chatId =
+      typeof result.chat === 'string'
+        ? result.chat
+        : result.chat._id?.toString() || result.chat.toString();
+    io.to(chatId).emit('message-updated', result);
+  }
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -155,6 +168,7 @@ const toggleReaction = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
+
 
 const markMessageAsRead = catchAsync(async (req: Request, res: Response) => {
   const { messageId } = req.params;

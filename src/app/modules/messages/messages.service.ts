@@ -293,7 +293,6 @@ const togglePinMessage = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
   }
 
-  // Toggle the current pin state
   const newPinStatus = !message.isPinned;
   message.isPinned = newPinStatus;
   message.pinnedBy = newPinStatus ? userId : undefined;
@@ -324,11 +323,12 @@ const toggleReaction = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
   }
 
+  // Ensure reactions array exists
   if (!message.reactions) {
     message.reactions = [];
   }
 
-  // Find if the user has already reacted (with any emoji)
+  // Find if the user has already reacted with any emoji
   const existingReactionIndex = message.reactions.findIndex(reaction =>
     reaction.users.some(user => user.toString() === userId)
   );
@@ -336,20 +336,22 @@ const toggleReaction = async (
   if (existingReactionIndex !== -1) {
     const existingReaction = message.reactions[existingReactionIndex];
     if (existingReaction.emoji === emoji) {
-      // Toggle off: remove the user from this reaction
+      // User clicked the same emoji: remove their reaction (toggle off)
       existingReaction.users = existingReaction.users.filter(
         user => user.toString() !== userId
       );
       if (existingReaction.users.length === 0) {
+        // Remove the reaction entry if no user left
         message.reactions.splice(existingReactionIndex, 1);
       }
     } else {
-      // Remove the user's previous reaction and then add the new reaction
+      // User had a different reaction: remove it first
       message.reactions[existingReactionIndex].users =
         existingReaction.users.filter(user => user.toString() !== userId);
       if (message.reactions[existingReactionIndex].users.length === 0) {
         message.reactions.splice(existingReactionIndex, 1);
       }
+      // Then add the new reaction
       const newReactionIndex = message.reactions.findIndex(
         r => r.emoji === emoji
       );
@@ -365,7 +367,7 @@ const toggleReaction = async (
       }
     }
   } else {
-    // User has not reacted before: add the reaction
+    // No existing reaction by the user: add reaction normally
     const existingEmojiIndex = message.reactions.findIndex(
       r => r.emoji === emoji
     );
@@ -387,17 +389,11 @@ const toggleReaction = async (
     .populate('sender', 'name image')
     .populate({
       path: 'replyTo',
-      populate: {
-        path: 'sender',
-        select: 'name image',
-      },
+      populate: { path: 'sender', select: 'name image' },
     })
     .populate('chat')
     .populate('readBy', 'name image')
-    .populate({
-      path: 'reactions.users',
-      select: 'name image',
-    });
+    .populate({ path: 'reactions.users', select: 'name image' });
 
   if (!updatedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
