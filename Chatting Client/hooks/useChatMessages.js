@@ -1,7 +1,7 @@
 // hooks/useChatMessages.js
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   updateMessage,
   deleteMessage,
@@ -77,11 +77,25 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     [processMessageQueue]
   );
 
+const reduxMessages = useSelector(
+  state => state.messages.messagesByChat[chatId] || []
+);
+
+useEffect(() => {
+  console.log('[useChatMessages] Messages updated from Redux:', reduxMessages);
+  setMessages([...reduxMessages]);
+}, [reduxMessages]);
+
+
   // Initialize chat and handle cleanup
   useEffect(() => {
     if (socket && chatId) {
+      console.log(`[Socket] Joining chat room: ${chatId}`);
       joinChat(chatId);
-      return () => leaveChat(chatId);
+      return () => {
+        console.log(`[Socket] Leaving chat room: ${chatId}`);
+        leaveChat(chatId);
+      };
     }
   }, [socket, chatId, joinChat, leaveChat]);
 
@@ -112,45 +126,6 @@ export const useChatMessages = (chatId, initialMessages = []) => {
       }
     };
 
-    // const handleMessageUpdate = updatedMessage => {
-    //   if (updatedMessage.chat.toString() === chatId) {
-    //     setMessages(prev =>
-    //       prev.map(msg =>
-    //         msg._id === updatedMessage._id ? updatedMessage : msg
-    //       )
-    //     );
-    //     dispatch(updateMessage(updatedMessage));
-    //   }
-    // };
-
-    // const handleMessageDelete = data => {
-    //   if (data.chatId === chatId) {
-    //     setMessages(prev =>
-    //       prev.map(msg =>
-    //         msg._id === data.messageId
-    //           ? { ...msg, isDeleted: true, content: 'This message was deleted' }
-    //           : msg
-    //       )
-    //     );
-    //     dispatch(deleteMessage({ chatId, messageId: data.messageId }));
-    //   }
-    // };
-
-    // const handleMessageDelete = data => {
-    //   console.log('[useChatMessages] Message delete received:', data);
-
-    //   if (data.chatId === chatId) {
-    //     dispatch(deleteMessage({ chatId, messageId: data.messageId }));
-    //   }
-    // };
-
-    const handleMessageDelete = data => {
-      console.log('[useChatMessages] Message delete received:', data);
-      if (data.chatId === chatId) {
-        dispatch(deleteMessage({ chatId, messageId: data.messageId }));
-      }
-    };
-
     const handleMessageRead = data => {
       console.log('[useChatMessages] Message read update:', data);
 
@@ -162,6 +137,13 @@ export const useChatMessages = (chatId, initialMessages = []) => {
             userId: data.userId,
           })
         );
+      }
+    };
+
+    const handleMessageDelete = data => {
+      console.log('[useChatMessages] Message delete event received:', data);
+      if (data.chatId === chatId) {
+        dispatch(deleteMessage(data));
       }
     };
 

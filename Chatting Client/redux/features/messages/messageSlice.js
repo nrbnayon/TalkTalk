@@ -317,39 +317,25 @@ const messageSlice = createSlice({
 
     deleteMessage: (state, action) => {
       const { chatId, messageId } = action.payload;
-      console.log('[messageSlice] Processing delete message:', {
-        messageId,
-        chatId,
-      });
+      console.log('[Redux] Processing delete message:', { messageId, chatId });
 
       if (state.messagesByChat[chatId]) {
-        const messageIndex = state.messagesByChat[chatId].findIndex(
-          msg => msg._id === messageId
+        state.messagesByChat[chatId] = state.messagesByChat[chatId].map(msg =>
+          msg._id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                content: 'This message was deleted',
+                deletedAt: new Date().toISOString(),
+              }
+            : msg
         );
 
-        if (messageIndex !== -1) {
-          // Update the message in place instead of filtering
-          state.messagesByChat[chatId][messageIndex] = {
-            ...state.messagesByChat[chatId][messageIndex],
-            isDeleted: true,
-            content: 'This message was deleted',
-            deletedAt: new Date().toISOString(),
-          };
-          console.log('[messageSlice] Message marked as deleted successfully');
-        }
+        // 🔥 Ensure state updates immutably for UI re-render
+        state.messagesByChat[chatId] = [...state.messagesByChat[chatId]];
       }
     },
 
-    // updateMessageReadStatus: (state, action) => {
-    //   const { messageId, chatId, userId } = action.payload;
-    //   const messages = state.messagesByChat[chatId];
-    //   if (messages) {
-    //     const message = messages.find(msg => msg._id === messageId);
-    //     if (message && !message.readBy?.some(reader => reader._id === userId)) {
-    //       message.readBy = [...(message.readBy || []), { _id: userId }];
-    //     }
-    //   }
-    // },
     clearMessages: (state, action) => {
       const chatId = action.payload;
       delete state.messagesByChat[chatId];
@@ -452,17 +438,6 @@ const messageSlice = createSlice({
           }
         }
       })
-      // .addCase(markMessageAsRead.fulfilled, (state, action) => {
-      //   const { messageId, chatId, readData } = action.payload;
-      //   if (state.messagesByChat[chatId]) {
-      //     const messageIndex = state.messagesByChat[chatId].findIndex(
-      //       msg => msg._id === messageId
-      //     );
-      //     if (messageIndex !== -1) {
-      //       state.messagesByChat[chatId][messageIndex].readBy = readData.readBy;
-      //     }
-      //   }
-      // })
 
       // Pin Message
       .addCase(pinMessage.fulfilled, (state, action) => {

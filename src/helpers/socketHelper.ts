@@ -444,45 +444,6 @@ class SocketHelper {
     this.logInfo(`User ${userId} left chat room: ${chatId}`);
   }
 
-  // private static async handleDeleteMessage(
-  //   socket: Socket,
-  //   io: Server,
-  //   data: { messageId: string; chatId: string }
-  // ) {
-  //   const { messageId, chatId } = data;
-
-  //   try {
-  //     // 1. Update the message in the database (e.g., mark as deleted)
-  //     // const updatedMessage = await MessageService.markMessageAsDeleted(
-  //     //   messageId
-  //     // );
-
-  //     // if (!updatedMessage) {
-  //     //   this.logError(`Message ${messageId} not found for deletion`);
-  //     //   return;
-  //     // }
-
-  //     this.logInfo(`Message ${messageId} deleted in chat ${chatId}`);
-
-  //     // 2. Emit the 'message-deleted' event to all clients in the chat
-  //     io.to(chatId).emit('message-deleted', { messageId, chatId }); // Use io.to to emit to the room
-  //   } catch (error) {
-  //     this.logError(`Error deleting message ${messageId}:`, error);
-  //     // Optionally, emit an error event to the specific client
-  //     if (error instanceof Error) {
-  //       socket.emit('delete-message-error', {
-  //         messageId,
-  //         error: error.message,
-  //       });
-  //     } else {
-  //       socket.emit('delete-message-error', {
-  //         messageId,
-  //         error: 'Unknown error',
-  //       });
-  //     }
-  //   }
-  // }
-
   private static async handleDeleteMessage(
     socket: Socket,
     io: Server,
@@ -491,23 +452,26 @@ class SocketHelper {
     const { messageId, chatId } = data;
 
     try {
-      // Log for debugging
-      console.log('[SocketHelper] Message delete request:', {
+      console.log('[SocketHelper] Processing delete message request:', {
         messageId,
         chatId,
         socketId: socket.id,
       });
 
-      // Broadcast to all users in chat room including sender
+      // Broadcast delete event to all users in the chat
       io.to(chatId).emit('message-deleted', {
         messageId,
         chatId,
         timestamp: new Date(),
       });
 
+      console.log(
+        `[SocketHelper] Emitted 'message-deleted' event to chat ${chatId}`
+      );
+
       this.logInfo(`Message ${messageId} deleted in chat ${chatId}`);
     } catch (error) {
-      this.logError(`Error deleting message ${messageId}:`, error);
+      console.error('[SocketHelper] Error deleting message:', error);
     }
   }
 

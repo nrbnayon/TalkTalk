@@ -259,7 +259,23 @@ export const SocketProvider = ({ children }) => {
     };
   }, [apiUrl, user, token, fetchOnlineUsers]);
 
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleDelete = data => {
+      console.log('[SocketContext] Message deleted event received:', data);
+      dispatch(deleteMessage(data)); // Ensure Redux updates
+    };
+
+    socketRef.current.on('message-deleted', handleDelete);
+
+    return () => {
+      socketRef.current?.off('message-deleted', handleDelete);
+    };
+  }, [dispatch]);
+
   // Socket event handlers
+
   useEffect(() => {
     if (!socketRef.current) return;
 
@@ -279,9 +295,12 @@ export const SocketProvider = ({ children }) => {
       'message-updated': updatedMessage => {
         dispatch(updateMessage(updatedMessage));
       },
-      'message-deleted': data => {
-        dispatch(deleteMessage(data));
-      },
+
+      // 'message-deleted': data => {
+      //   console.log('[SocketContext] Message deleted event received:', data);
+      //   dispatch(deleteMessage(data));
+      // },
+
       'message-read-update': data => {
         dispatch(
           updateMessageReadStatus({

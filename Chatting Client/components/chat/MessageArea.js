@@ -221,6 +221,7 @@ const MessagesArea = ({
 
       if (response.ok) {
         dispatch(deleteMessage({ messageId, chatId }));
+        socket.emit('delete-message', { messageId, chatId });
       }
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -329,4 +330,3 @@ const MessagesArea = ({
 };
 
 export default MessagesArea;
-
