@@ -77,23 +77,25 @@ const MessageList = ({
   };
 
   const hasUserReacted = (reactions, emoji) => {
-    if (!reactions) return false;
+    if (!reactions || !currentUser || !currentUser._id) return false;
     return reactions.some(
       reaction =>
         reaction.emoji === emoji &&
         reaction.users.some(
-          user => user.toString() === currentUser._id.toString()
+          user => user._id?.toString() === currentUser._id.toString()
         )
     );
   };
 
   const renderReactionButton = (message, emoji) => {
-    const count = getReactionCount(message.reactions, emoji);
+    const reaction = message.reactions?.find(r => r.emoji === emoji);
+    const count = reaction ? reaction.users.length : 0;
     const hasReacted = hasUserReacted(message.reactions, emoji);
-
+    const tooltip = reaction ? reaction.users.map(u => u.name).join(', ') : '';
     return (
       <button
         key={emoji}
+        title={tooltip}
         className={cn(
           'inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-sm transition-all',
           'hover:bg-gray-50 hover:border-gray-300',
@@ -270,7 +272,7 @@ const MessageList = ({
                   ? 'bg-gray-400 text-gray-700 italic'
                   : isOwnMessage
                   ? message.attachments && message.attachments.length > 0
-                    ? 'bg-green-500 text-white rounded-2xl rounded-tr-sm mt-1 mr-1' 
+                    ? 'bg-green-500 text-white rounded-2xl rounded-tr-sm mt-1 mr-1'
                     : 'bg-blue-500 text-white rounded-2xl rounded-tr-sm mt-1 mr-1'
                   : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm ml-1'
               )}

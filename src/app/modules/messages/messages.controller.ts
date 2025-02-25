@@ -113,11 +113,18 @@ const togglePinMessage = catchAsync(async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { chatId } = req.body;
 
+  // Toggle pin status via the service
   const result = await MessageService.togglePinMessage(
     messageId,
     req.user.id,
     chatId
   );
+
+  // Emit a real-time update to all clients in the chat room
+  const io = req.app.get('io');
+  if (io) {
+    io.to(chatId).emit('message-updated', result);
+  }
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

@@ -33,9 +33,8 @@ const MessageInputUI = ({
   messageText,
   setMessageText,
   files,
-  setFiles,
+  handleKeyDown,
   fileError,
-  setFileError,
   replyingTo,
   setReplyingTo,
   editingMessage,
@@ -64,7 +63,6 @@ const MessageInputUI = ({
   const [isTyping, setIsTyping] = useState(false);
   const { user } = useSelector(state => state.auth);
   const typingTimeoutRef = useRef(null);
-  const messageContainerRef = useRef(null);
   const { startTyping, stopTyping } = useSocket();
   const handleTyping = useCallback(
     value => {
@@ -266,6 +264,7 @@ const MessageInputUI = ({
                 setMessageText(newValue);
                 handleTyping(newValue);
               }}
+              onKeyDown={handleKeyDown}
               placeholder={
                 editingMessage ? 'Edit your message...' : 'Type a message...'
               }

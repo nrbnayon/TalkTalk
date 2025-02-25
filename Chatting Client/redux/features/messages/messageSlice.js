@@ -483,13 +483,20 @@ export const {
   clearMessages,
 } = messageSlice.actions;
 
+
+
 export const selectMessagesByChatId = createSelector(
   [state => state.messages.messagesByChat, (state, chatId) => chatId],
   (messagesByChat, chatId) => {
     if (!chatId || !messagesByChat[chatId]) return [];
-    return [...messagesByChat[chatId]].sort(
-      (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-    );
+    // Only sort if we have messages
+    if (messagesByChat[chatId].length) {
+      // This still returns a new array, but now it's memoized by createSelector
+      return [...messagesByChat[chatId]].sort(
+        (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+      );
+    }
+    return messagesByChat[chatId];
   }
 );
 

@@ -12,7 +12,6 @@ import {
   fetchMessages,
   selectMessagesByChatId,
   selectMessagesLoading,
-  addMessage,
 } from '@/redux/features/messages/messageSlice';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { LottieLoading } from '@/components/Animations/Loading';
@@ -99,10 +98,10 @@ const ChatView = () => {
     <div className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden">
       <ChatHeader otherUser={otherUser} />
       <MessageArea
-        messages={messages}
+        // messages={messages}
         currentUser={user}
         chatId={chatId}
-        typingUsers={typingUsers}
+        // typingUsers={typingUsers}
       />
       <MessageInput chatId={chatId} sendMessage={sendMessage} />
     </div>

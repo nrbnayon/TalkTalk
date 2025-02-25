@@ -4,16 +4,36 @@ import React, { useEffect, useRef, useState } from 'react';
 const TypingIndicator = ({ typingUsers, messageContainerRef }) => {
   const indicatorRef = useRef(null);
   const [latestContent, setLatestContent] = useState('');
+  const [shouldShow, setShouldShow] = useState(false);
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
     if (typingUsers.length > 0) {
       const newContent = typingUsers[typingUsers.length - 1]?.content || '';
       setLatestContent(newContent);
+      setShouldShow(true);
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        setShouldShow(false);
+      }, 2000);
+    } else {
+      setShouldShow(false);
     }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [typingUsers]);
 
   useEffect(() => {
     if (
+      shouldShow &&
       typingUsers.length > 0 &&
       messageContainerRef.current &&
       indicatorRef.current
@@ -21,9 +41,9 @@ const TypingIndicator = ({ typingUsers, messageContainerRef }) => {
       messageContainerRef.current.scrollTop =
         messageContainerRef.current.scrollHeight;
     }
-  }, [typingUsers, messageContainerRef]);
+  }, [shouldShow, typingUsers, messageContainerRef]);
 
-  if (!typingUsers.length) return null;
+  if (!typingUsers.length || !shouldShow) return null;
 
   return (
     <div

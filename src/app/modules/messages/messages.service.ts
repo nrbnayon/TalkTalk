@@ -288,29 +288,20 @@ const togglePinMessage = async (
   userId: string,
   chatId: string
 ): Promise<IMessage> => {
-  const message = await Message.findOne({
-    _id: messageId,
-    chat: chatId,
-  });
-
+  const message = await Message.findOne({ _id: messageId, chat: chatId });
   if (!message) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
   }
 
-  const updatedMessage = await Message.findByIdAndUpdate(
-    messageId,
-    [
-      {
-        // isPinned: !message.isPinned,
-        $set: {
-          isPinned: { $not: '$isPinned' },
-          pinnedBy: userId,
-          pinnedAt: new Date(),
-        },
-      },
-    ],
-    { new: true }
-  )
+  // Toggle the current pin state
+  const newPinStatus = !message.isPinned;
+  message.isPinned = newPinStatus;
+  message.pinnedBy = newPinStatus ? userId : undefined;
+  message.pinnedAt = newPinStatus ? new Date() : null;
+
+  await message.save();
+
+  const updatedMessage = await Message.findById(messageId)
     .populate('sender', 'name image')
     .populate('pinnedBy', 'name image')
     .populate('chat')
@@ -329,7 +320,6 @@ const toggleReaction = async (
   emoji: string
 ): Promise<IMessage> => {
   const message = await Message.findById(messageId);
-
   if (!message) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
   }
@@ -338,29 +328,28 @@ const toggleReaction = async (
     message.reactions = [];
   }
 
-  const userReactionIndex = message.reactions.findIndex(reaction =>
+  // Find if the user has already reacted (with any emoji)
+  const existingReactionIndex = message.reactions.findIndex(reaction =>
     reaction.users.some(user => user.toString() === userId)
   );
 
-  if (userReactionIndex !== -1) {
-    const existingReaction = message.reactions[userReactionIndex];
-
+  if (existingReactionIndex !== -1) {
+    const existingReaction = message.reactions[existingReactionIndex];
     if (existingReaction.emoji === emoji) {
+      // Toggle off: remove the user from this reaction
       existingReaction.users = existingReaction.users.filter(
         user => user.toString() !== userId
       );
-
       if (existingReaction.users.length === 0) {
-        message.reactions.splice(userReactionIndex, 1);
+        message.reactions.splice(existingReactionIndex, 1);
       }
     } else {
-      message.reactions[userReactionIndex].users =
+      // Remove the user's previous reaction and then add the new reaction
+      message.reactions[existingReactionIndex].users =
         existingReaction.users.filter(user => user.toString() !== userId);
-
-      if (message.reactions[userReactionIndex].users.length === 0) {
-        message.reactions.splice(userReactionIndex, 1);
+      if (message.reactions[existingReactionIndex].users.length === 0) {
+        message.reactions.splice(existingReactionIndex, 1);
       }
-
       const newReactionIndex = message.reactions.findIndex(
         r => r.emoji === emoji
       );
@@ -376,6 +365,7 @@ const toggleReaction = async (
       }
     }
   } else {
+    // User has not reacted before: add the reaction
     const existingEmojiIndex = message.reactions.findIndex(
       r => r.emoji === emoji
     );
@@ -403,7 +393,11 @@ const toggleReaction = async (
       },
     })
     .populate('chat')
-    .populate('readBy', 'name image');
+    .populate('readBy', 'name image')
+    .populate({
+      path: 'reactions.users',
+      select: 'name image',
+    });
 
   if (!updatedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');

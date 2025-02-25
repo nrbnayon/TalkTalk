@@ -35,13 +35,9 @@ async function fetchWithAuth(url, options = {}) {
   return response.json();
 }
 
-// Handle all message routes with dynamic parameters
-// 2. Update the API route in app/api/messages/[...params]/route.js:
-
-export async function GET(request, { params }) {
+// GET: Handles chat messages and unseen message count routes.
+export async function GET(request, { params: { params: pathSegments } }) {
   try {
-    const pathSegments = Array.isArray(params?.params) ? params.params : [];
-
     // Handle chat messages: /api/messages/{chatId}
     if (pathSegments.length === 1) {
       const chatId = pathSegments[0];
@@ -65,9 +61,8 @@ export async function GET(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
-  const pathSegments = await Promise.resolve(params.params);
-
+// DELETE: Deletes a message by its ID.
+export async function DELETE(request, { params: { params: pathSegments } }) {
   if (pathSegments.length === 1) {
     const messageId = pathSegments[0];
 
@@ -86,15 +81,13 @@ export async function DELETE(request, { params }) {
 
   return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
-// Updated POST method for reactions
-export async function POST(request, { params }) {
-  const pathSegments = await Promise.resolve(params.params);
 
+// POST: Handles reactions to messages.
+export async function POST(request, { params: { params: pathSegments } }) {
   if (pathSegments.length === 2 && pathSegments[1] === 'react') {
     const messageId = pathSegments[0];
     try {
       const body = await request.json();
-      // Updated to match your backend route
       const data = await fetchWithAuth(`/messages/${messageId}/react`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -112,10 +105,8 @@ export async function POST(request, { params }) {
   return NextResponse.json({ error: 'Invalid route' }, { status: 404 });
 }
 
-// Updated PATCH method with better pin toggle handling
-export async function PATCH(request, { params }) {
-  const pathSegments = await Promise.resolve(params.params);
-
+// PATCH: Handles editing, pinning, and marking messages as read.
+export async function PATCH(request, { params: { params: pathSegments } }) {
   if (pathSegments.length === 2) {
     const messageId = pathSegments[0];
     const action = pathSegments[1];
@@ -124,16 +115,16 @@ export async function PATCH(request, { params }) {
     if (action === 'edit') {
       try {
         const body = await request.json();
-        const { messageId, content } = body;
+        const { messageId: bodyMessageId, content } = body;
 
-        if (!messageId || !content) {
+        if (!bodyMessageId || !content) {
           return NextResponse.json(
             { error: 'MessageId and content are required' },
             { status: 400 }
           );
         }
 
-        const data = await fetchWithAuth(`/messages/${messageId}/edit`, {
+        const data = await fetchWithAuth(`/messages/${bodyMessageId}/edit`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -150,7 +141,7 @@ export async function PATCH(request, { params }) {
       }
     }
 
-    // Updated pin handling
+    // Handle pin toggle: /api/messages/{messageId}/pin
     if (action === 'pin') {
       try {
         const body = await request.json();
@@ -178,7 +169,7 @@ export async function PATCH(request, { params }) {
       }
     }
 
-    // Handle read status
+    // Handle marking as read: /api/messages/{messageId}/read
     if (action === 'read') {
       try {
         const data = await fetchWithAuth(`/messages/${messageId}/read`, {

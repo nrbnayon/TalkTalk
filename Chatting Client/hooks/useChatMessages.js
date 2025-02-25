@@ -1,4 +1,5 @@
 // hooks/useChatMessages.js
+'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { useDispatch, useSelector } from 'react-redux';
@@ -7,6 +8,7 @@ import {
   deleteMessage,
   addMessage,
   updateMessageReadStatus,
+  selectMessagesByChatId,
 } from '../redux/features/messages/messageSlice';
 
 const TYPING_TIMEOUT = 3000;
@@ -77,15 +79,21 @@ export const useChatMessages = (chatId, initialMessages = []) => {
     [processMessageQueue]
   );
 
-const reduxMessages = useSelector(
-  state => state.messages.messagesByChat[chatId] || []
-);
+  // Use the memoized selector to avoid creating a new reference each time
+  const reduxMessages = useSelector(state =>
+    selectMessagesByChatId(state, chatId)
+  );
 
-useEffect(() => {
-  console.log('[useChatMessages] Messages updated from Redux:', reduxMessages);
-  setMessages([...reduxMessages]);
-}, [reduxMessages]);
-
+  useEffect(() => {
+    console.log(
+      '[useChatMessages] Messages updated from Redux:',
+      reduxMessages
+    );
+    // Avoid creating a new array if reduxMessages hasn't changed
+    if (reduxMessages) {
+      setMessages(reduxMessages);
+    }
+  }, [reduxMessages]);
 
   // Initialize chat and handle cleanup
   useEffect(() => {

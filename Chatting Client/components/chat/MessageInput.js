@@ -31,10 +31,7 @@ const MessageInput = ({ chatId }) => {
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
   const textareaRef = useRef(null);
-  const {
-    sendMessage: socketSendMessage,
-    socket,
-  } = useSocket();
+  const { sendMessage: socketSendMessage, socket, stopTyping } = useSocket();
 
   // Add event listeners for reply and edit
   useEffect(() => {
@@ -245,87 +242,107 @@ const MessageInput = ({ chatId }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSendMessage = useCallback(
-    async e => {
-      e.preventDefault();
+ const handleSendMessage = useCallback(
+   async e => {
+     e.preventDefault();
 
-      if (isSending) {
-        return;
-      }
-      setIsSending(true);
-      try {
-        const formData = new FormData();
+     if (isSending) {
+       return;
+     }
+     setIsSending(true);
+     stopTyping(chatId, {
+       userId: null,
+       name: null,
+       isTyping: false,
+     });
+     try {
+       if (socket) {
+         socket.emit('typing-update', {
+           chatId,
+           isTyping: false,
+         });
+       }
+       
+       const formData = new FormData();
 
-        // Add message content
-        if (messageText.trim()) {
-          formData.append('content', messageText.trim());
-        }
-        formData.append('chatId', chatId);
+       // Add message content
+       if (messageText.trim()) {
+         formData.append('content', messageText.trim());
+       }
+       formData.append('chatId', chatId);
 
-        // Handle reply
-        if (replyingTo?._id) {
-          console.log('[MessageInput] Adding reply reference:', replyingTo._id);
-          formData.append('replyToId', replyingTo._id);
-        }
+       // Handle reply
+       if (replyingTo?._id) {
+         console.log('[MessageInput] Adding reply reference:', replyingTo._id);
+         formData.append('replyToId', replyingTo._id);
+       }
 
-        // Handle edit
-        if (editingMessage?.id) {
-          console.log(
-            '[MessageInput] Adding edit reference:',
-            editingMessage.id
-          );
-          formData.append('messageId', editingMessage.id);
-        }
+       // Handle edit
+       if (editingMessage?.id) {
+         console.log(
+           '[MessageInput] Adding edit reference:',
+           editingMessage.id
+         );
+         formData.append('messageId', editingMessage.id);
+       }
 
-        // Add files
-        if (files.length > 0) {
-          files.forEach((fileObj, index) => {
-            const { file, type } = fileObj;
-            const fieldName =
-              type === 'image'
-                ? 'images'
-                : type === 'audio' || type === 'video'
-                ? 'media'
-                : 'doc';
-            formData.append(fieldName, file);
-          });
-        }
-        if (editingMessage) {
-          const editFormData = new FormData();
-          editFormData.append('messageId', editingMessage.id);
-          editFormData.append('content', messageText.trim());
-          dispatch(editMessage({ formData: editFormData, socket }));
-        } else {
-          const result = await dispatch(
-            sendMessage({ formData, socket })
-          ).unwrap();
-          // socketSendMessage({ formData, socket });
-        }
+       // Add files
+       if (files.length > 0) {
+         files.forEach((fileObj, index) => {
+           const { file, type } = fileObj;
+           const fieldName =
+             type === 'image'
+               ? 'images'
+               : type === 'audio' || type === 'video'
+               ? 'media'
+               : 'doc';
+           formData.append(fieldName, file);
+         });
+       }
+       if (editingMessage) {
+         const editFormData = new FormData();
+         editFormData.append('messageId', editingMessage.id);
+         editFormData.append('content', messageText.trim());
+         dispatch(editMessage({ formData: editFormData, socket }));
+       } else {
+         const result = await dispatch(
+           sendMessage({ formData, socket })
+         ).unwrap();
+         // socketSendMessage({ formData, socket });
+       }
 
-        // Reset states
-        setMessageText('');
-        setFiles([]);
-        setReplyingTo(null);
-        setEditingMessage(null);
-        setUploadProgress(0);
-        setAudioURL(null);
-      } catch (error) {
-        console.error('[MessageInput] Error in message operation:', error);
-      } finally {
-        setIsSending(false);
-      }
-    },
-    [
-      chatId,
-      messageText,
-      files,
-      replyingTo,
-      editingMessage,
-      socket,
-      isSending,
-      dispatch,
-    ]
+       // Reset states
+       setMessageText('');
+       setFiles([]);
+       setReplyingTo(null);
+       setEditingMessage(null);
+       setUploadProgress(0);
+       setAudioURL(null);
+     } catch (error) {
+       console.error('[MessageInput] Error in message operation:', error);
+     } finally {
+       setIsSending(false);
+     }
+   },
+   [
+     chatId,
+     messageText,
+     files,
+     replyingTo,
+     editingMessage,
+     socket,
+     isSending,
+     stopTyping,
+     dispatch,
+   ]
   );
+  
+  const handleKeyDown = e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
+    }
+  };
 
   const cancelReplyOrEdit = useCallback(() => {
     setReplyingTo(null);
@@ -373,6 +390,7 @@ const MessageInput = ({ chatId }) => {
       isSending={isSending}
       handleEmojiClick={handleEmojiClick}
       cancelReplyOrEdit={cancelReplyOrEdit}
+      handleKeyDown={handleKeyDown}
     />
   );
 };
