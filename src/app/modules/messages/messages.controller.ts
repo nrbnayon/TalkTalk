@@ -124,11 +124,18 @@ const togglePinMessage = catchAsync(async (req: Request, res: Response) => {
   const io = req.app.get('io');
   if (io) {
     console.log(`[MessageController] Emitting socket event to chat: ${chatId}`);
-    io.to(chatId).emit('message-updated', result);
-  } else {
-    console.log(
-      `[MessageController] Socket not available for real-time update`
-    );
+    // Transform the result to ensure proper data structure
+    const messageToEmit = {
+      ...result,
+      pinnedBy: result.pinnedBy
+        ? {
+            _id: result.pinnedBy._id || result.pinnedBy,
+            name: result.pinnedBy.name,
+            image: result.pinnedBy.image,
+          }
+        : null,
+    };
+    io.to(chatId).emit('message-updated', messageToEmit);
   }
 
   sendResponse(res, {
@@ -168,7 +175,6 @@ const toggleReaction = catchAsync(async (req: Request, res: Response) => {
     data: result,
   });
 });
-
 
 const markMessageAsRead = catchAsync(async (req: Request, res: Response) => {
   const { messageId } = req.params;

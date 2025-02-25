@@ -92,6 +92,7 @@ const MessageList = ({
     const count = reaction ? reaction.users.length : 0;
     const hasReacted = hasUserReacted(message.reactions, emoji);
     const tooltip = reaction ? reaction.users.map(u => u.name).join(', ') : '';
+
     return (
       <button
         key={emoji}

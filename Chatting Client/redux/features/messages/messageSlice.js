@@ -294,8 +294,7 @@ const messageSlice = createSlice({
       console.log('[messageSlice] Updating message:', {
         messageId,
         chatId,
-        content: message.content,
-        isEdited: message.isEdited,
+        message,
       });
 
       if (state.messagesByChat[chatId]) {
@@ -304,13 +303,32 @@ const messageSlice = createSlice({
         );
 
         if (index !== -1) {
-          // Preserve existing message data and merge with updates
+          // Create a new message object with merged data
           state.messagesByChat[chatId][index] = {
             ...state.messagesByChat[chatId][index],
             ...message,
+            // Ensure pinnedBy data is properly updated
+            pinnedBy: message.pinnedBy
+              ? {
+                  _id: message.pinnedBy._id,
+                  name: message.pinnedBy.name,
+                  image: message.pinnedBy.image,
+                }
+              : null,
+            // Ensure reactions are properly updated
+            reactions:
+              message.reactions?.map(reaction => ({
+                emoji: reaction.emoji,
+                users: reaction.users.map(user => ({
+                  _id: user._id,
+                  name: user.name,
+                  image: user.image,
+                })),
+              })) || [],
           };
 
-          console.log('[messageSlice] Message updated successfully');
+          // Force update the array to trigger re-render
+          state.messagesByChat[chatId] = [...state.messagesByChat[chatId]];
         }
       }
     },
@@ -482,8 +500,6 @@ export const {
   updateMessageReadStatus,
   clearMessages,
 } = messageSlice.actions;
-
-
 
 export const selectMessagesByChatId = createSelector(
   [state => state.messages.messagesByChat, (state, chatId) => chatId],

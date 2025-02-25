@@ -9,7 +9,10 @@ const PinnedMessage = ({ message, onUnpin, onScrollTo }) => {
   const pinnedTime = message.pinnedAt
     ? formatDistanceToNow(new Date(message.pinnedAt), { addSuffix: true })
     : '';
-  const pinnedBy = message.pinnedBy?.name || 'Someone';
+
+  const pinnedByUser = message.pinnedBy || {};
+  const pinnedByName = pinnedByUser.name || 'Someone';
+  const pinnedByImage = pinnedByUser.image;
 
   return (
     <div className="bg-blue-50/80 border-b border-blue-100 p-3 flex items-center justify-between gap-4 animate-slideDown">
@@ -22,14 +25,24 @@ const PinnedMessage = ({ message, onUnpin, onScrollTo }) => {
           <Avatar className="h-6 w-6 border border-blue-100">
             <AvatarImage src={message.sender.image} alt={message.sender.name} />
             <AvatarFallback>
-              {message.sender.name.substring(0, 2)}
+              {message.sender.name?.substring(0, 2)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm text-blue-900 truncate">{message.content}</p>
-            <p className="text-xs text-blue-600">
-              Pinned by {pinnedBy} {pinnedTime}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-blue-600">
+                Pinned by {pinnedByName} {pinnedTime}
+              </p>
+              {pinnedByImage && (
+                <Avatar className="h-4 w-4">
+                  <AvatarImage src={pinnedByImage} alt={pinnedByName} />
+                  <AvatarFallback>
+                    {pinnedByName.substring(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+            </div>
           </div>
         </div>
       </div>

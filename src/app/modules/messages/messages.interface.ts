@@ -34,7 +34,7 @@ export interface IMessage {
   chat: Types.ObjectId;
   readBy: Types.ObjectId[];
   replyTo?: Types.ObjectId[];
-  pinnedBy?: Types.ObjectId[] | string | null;
+  pinnedBy?: any | Types.ObjectId | null;
   isPinned: boolean;
   isEdited: boolean;
   isDeleted: boolean;

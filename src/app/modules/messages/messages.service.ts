@@ -8,6 +8,7 @@ import { IMessage, IMessageFilters, MessageType } from './messages.interface';
 import { logger } from '../../../shared/logger';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { User } from '../user/user.model';
 
 const getAllMessages = async (
   chatId: string,
@@ -295,24 +296,33 @@ const togglePinMessage = async (
 
   const newPinStatus = !message.isPinned;
   message.isPinned = newPinStatus;
-  message.pinnedBy = newPinStatus ? userId : undefined;
-  message.pinnedAt = newPinStatus ? new Date() : null;
 
+  // Update pinnedBy with full user object
+  if (newPinStatus) {
+    const user = await User.findById(userId).select('name image');
+    message.pinnedBy = user;
+  } else {
+    message.pinnedBy = null;
+  }
+
+  message.pinnedAt = newPinStatus ? new Date() : null;
   await message.save();
 
-  const updatedMessage = await Message.findById(messageId)
+  const pinnedMessage = await Message.findById(messageId)
     .populate('sender', 'name image')
     .populate('pinnedBy', 'name image')
     .populate('chat')
-    .populate('readBy', 'name image');
+    .populate('readBy', 'name image')
+    .lean();
 
-  if (!updatedMessage) {
+  if (!pinnedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
   }
 
-  return updatedMessage.toObject();
+  return pinnedMessage;
 };
 
+// Update the toggleReaction function
 const toggleReaction = async (
   messageId: string,
   userId: string,
@@ -323,62 +333,60 @@ const toggleReaction = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found');
   }
 
-  // Ensure reactions array exists
+  // Get user details for the reaction
+  const user = await User.findById(userId).select('name image');
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
   if (!message.reactions) {
     message.reactions = [];
   }
 
-  // Find if the user has already reacted with any emoji
   const existingReactionIndex = message.reactions.findIndex(reaction =>
-    reaction.users.some(user => user.toString() === userId)
+    reaction.users.some(u => u._id.toString() === userId)
   );
 
   if (existingReactionIndex !== -1) {
     const existingReaction = message.reactions[existingReactionIndex];
     if (existingReaction.emoji === emoji) {
-      // User clicked the same emoji: remove their reaction (toggle off)
+      // Remove user from reaction
       existingReaction.users = existingReaction.users.filter(
-        user => user.toString() !== userId
+        u => u._id.toString() !== userId
       );
       if (existingReaction.users.length === 0) {
-        // Remove the reaction entry if no user left
         message.reactions.splice(existingReactionIndex, 1);
       }
     } else {
-      // User had a different reaction: remove it first
+      // Change user's reaction to new emoji
       message.reactions[existingReactionIndex].users =
-        existingReaction.users.filter(user => user.toString() !== userId);
+        existingReaction.users.filter(u => u._id.toString() !== userId);
       if (message.reactions[existingReactionIndex].users.length === 0) {
         message.reactions.splice(existingReactionIndex, 1);
       }
-      // Then add the new reaction
       const newReactionIndex = message.reactions.findIndex(
         r => r.emoji === emoji
       );
       if (newReactionIndex !== -1) {
-        message.reactions[newReactionIndex].users.push(
-          new Types.ObjectId(userId)
-        );
+        message.reactions[newReactionIndex].users.push(user._id);
       } else {
         message.reactions.push({
           emoji,
-          users: [new Types.ObjectId(userId)],
+          users: [user._id],
         });
       }
     }
   } else {
-    // No existing reaction by the user: add reaction normally
+    // Add new reaction
     const existingEmojiIndex = message.reactions.findIndex(
       r => r.emoji === emoji
     );
     if (existingEmojiIndex !== -1) {
-      message.reactions[existingEmojiIndex].users.push(
-        new Types.ObjectId(userId)
-      );
+      message.reactions[existingEmojiIndex].users.push(user._id);
     } else {
       message.reactions.push({
         emoji,
-        users: [new Types.ObjectId(userId)],
+        users: [user._id],
       });
     }
   }
@@ -393,13 +401,14 @@ const toggleReaction = async (
     })
     .populate('chat')
     .populate('readBy', 'name image')
-    .populate({ path: 'reactions.users', select: 'name image' });
+    .populate('reactions.users', 'name image')
+    .lean();
 
   if (!updatedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
   }
 
-  return updatedMessage.toObject();
+  return updatedMessage;
 };
 
 const markMessageAsRead = async (

@@ -90,9 +90,8 @@ const messageSchema = new Schema<IMessage>(
   },
   {
     timestamps: true,
-    toJSON: {
-      virtuals: true,
-    },
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 

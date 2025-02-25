@@ -383,7 +383,11 @@ export const SocketProvider = ({ children }) => {
         dispatch(addMessage(message));
       },
       'message-updated': updatedMessage => {
-        dispatch(updateMessage(updatedMessage));
+        console.log('Received message update:', updatedMessage);
+        // Ensure we have the complete message data
+        if (updatedMessage && updatedMessage._id) {
+          dispatch(updateMessage(updatedMessage));
+        }
       },
 
       // 'message-deleted': data => {
@@ -391,15 +395,15 @@ export const SocketProvider = ({ children }) => {
       //   dispatch(deleteMessage(data));
       // },
 
-      'message-read-update': data => {
-        dispatch(
-          updateMessageReadStatus({
-            messageId: data.messageId,
-            chatId: data.chatId,
-            userId: data.userId,
-          })
-        );
-      },
+      // 'message-read-update': data => {
+      //   dispatch(
+      //     updateMessageReadStatus({
+      //       messageId: data.messageId,
+      //       chatId: data.chatId,
+      //       userId: data.userId,
+      //     })
+      //   );
+      // },
       'message-read-update': data => {
         dispatch(markMessageAsRead(data));
       },
