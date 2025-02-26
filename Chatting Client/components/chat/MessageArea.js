@@ -8,7 +8,6 @@ import {
   deleteMessage,
   fetchMessages,
   selectMessagesMeta,
-  addMessage,
   selectMessagesByChatId,
 } from '@/redux/features/messages/messageSlice';
 import { useMessageActions } from '@/hooks/useMessageActions';
@@ -21,14 +20,11 @@ import { useChatMessages } from '@/hooks/useChatMessages';
 import TypingIndicator from './TypingIndicator';
 
 const MessagesArea = ({
-  // messages = [],
   currentUser,
   chatId,
-  // typingUsers = [],
 }) => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
-  const loadingRef = useRef(null);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const lastScrollPositionRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
@@ -171,7 +167,28 @@ const MessagesArea = ({
     markUnreadMessages();
 
     const handleMessageUpdate = updatedMessage => {
-      dispatch(updateMessage(updatedMessage));
+      console.log('Received updated message in message area::', updatedMessage);
+      if (
+        updatedMessage.chat._id === chatId ||
+        updatedMessage.chat === chatId
+      ) {
+        dispatch(updateMessage(updatedMessage));
+
+        // If the message is pinned/unpinned, make sure to update the UI immediately
+        if (updatedMessage.isPinned !== undefined) {
+          // Force re-render of pinned messages
+          const updatedMessages = [...messages];
+          const index = updatedMessages.findIndex(
+            msg => msg._id === updatedMessage._id
+          );
+          if (index !== -1) {
+            updatedMessages[index] = {
+              ...updatedMessages[index],
+              ...updatedMessage,
+            };
+          }
+        }
+      }
     };
 
     const handleMessageDelete = data => {

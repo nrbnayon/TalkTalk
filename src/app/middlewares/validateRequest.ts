@@ -4,7 +4,7 @@ import { AnyZodObject, ZodError, z } from 'zod';
 // Create a type that accepts both plain Zod objects and refined schemas
 type ZodSchema = z.ZodType<any, any>;
 
-const validateRequest = (schema: ZodSchema) => {
+const validateRequest = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       await schema.parseAsync({

@@ -6,10 +6,16 @@ import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 
 const PinnedMessage = ({ message, onUnpin, onScrollTo }) => {
+  const pinnedByUser =
+    typeof message.pinnedBy === 'object'
+      ? message.pinnedBy
+      : { name: 'Someone' };
+
   const pinnedTime = message.pinnedAt
     ? formatDistanceToNow(new Date(message.pinnedAt), { addSuffix: true })
     : '';
-  const pinnedBy = message.pinnedBy?.name || 'Someone';
+
+  console.log('GOT PINNED MESSAGE DATA::', message);
 
   return (
     <div className="bg-blue-50/80 border-b border-blue-100 p-3 flex items-center justify-between gap-4 animate-slideDown">
@@ -28,7 +34,7 @@ const PinnedMessage = ({ message, onUnpin, onScrollTo }) => {
           <div className="flex-1 min-w-0">
             <p className="text-sm text-blue-900 truncate">{message.content}</p>
             <p className="text-xs text-blue-600">
-              Pinned by {pinnedBy} {pinnedTime}
+              Pinned by {message.sender.name || pinnedByUser.name} {pinnedTime}
             </p>
           </div>
         </div>

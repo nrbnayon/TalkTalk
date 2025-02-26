@@ -8,9 +8,11 @@ import { IMessage, IMessageFilters, MessageType } from './messages.interface';
 import { logger } from '../../../shared/logger';
 import { IPaginationOptions } from '../../../types/pagination';
 import { paginationHelper } from '../../../helpers/paginationHelper';
+import { User } from '../user/user.model';
 
-const getAllMessages = async (
+const getAllMessagesFromDB = async (
   chatId: string,
+  userId: string,
   paginationOptions: IPaginationOptions
 ): Promise<{ meta: any; messages: IMessage[] }> => {
   const { page, limit, skip, sortBy, sortOrder } =
@@ -35,7 +37,6 @@ const getAllMessages = async (
       .populate('chat')
       .populate('readBy', 'name image')
       .sort({ [sortBy]: sortOrder })
-      // .sort({ createdAt: 1 })
       .skip(skip)
       .limit(limit)
       .lean();
@@ -44,11 +45,10 @@ const getAllMessages = async (
     const total = await Message.countDocuments({ chat: chatId });
 
     // Calculate unread count (assuming `user.id` is available)
-    // const unreadCount = await Message.countDocuments({
-    //   chat: chatId,
-    //   readBy: { $ne: Types.ObjectId(user.id) },
-    // });
-    const unreadCount = 0;
+    const unreadCount = await Message.countDocuments({
+      chat: chatId,
+      readBy: { $ne: new Types.ObjectId(userId) },
+    });
 
     return {
       meta: {
@@ -67,19 +67,6 @@ const getAllMessages = async (
     );
   }
 };
-
-// const getAllMessages = async (chatId: string): Promise<IMessage[]> => {
-//   const messages = await Message.find({
-//     chat: chatId,
-//     isDeleted: false,
-//   })
-//     .populate('sender', 'name email image')
-//     .populate('replyTo')
-//     .populate('chat')
-//     .sort({ createdAt: 1 });
-
-//   return messages.map(msg => msg.toObject());
-// };
 
 const sendMessage = async ({
   content,
@@ -286,7 +273,7 @@ const deleteMessage = async (
 const togglePinMessage = async (
   messageId: string,
   userId: string,
-  chatId: string
+  chatId: string,
 ): Promise<IMessage> => {
   const message = await Message.findOne({ _id: messageId, chat: chatId });
   if (!message) {
@@ -295,22 +282,30 @@ const togglePinMessage = async (
 
   const newPinStatus = !message.isPinned;
   message.isPinned = newPinStatus;
-  message.pinnedBy = newPinStatus ? userId : undefined;
+  if (newPinStatus) {
+    const user = await User.findById(userId).select('name image');
+    message.pinnedBy = user;
+  } else {
+    message.pinnedBy = null;
+  }
   message.pinnedAt = newPinStatus ? new Date() : null;
 
   await message.save();
 
-  const updatedMessage = await Message.findById(messageId)
+  const pinnedMessage = await Message.findById(messageId)
     .populate('sender', 'name image')
     .populate('pinnedBy', 'name image')
+    .populate('readBy', 'name image')
     .populate('chat')
-    .populate('readBy', 'name image');
+    .lean();
 
-  if (!updatedMessage) {
+  if (!pinnedMessage) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Message not found after update');
   }
 
-  return updatedMessage.toObject();
+  console.log('Get pinned message in backend::', pinnedMessage);
+
+  return pinnedMessage;
 };
 
 const toggleReaction = async (
@@ -477,7 +472,7 @@ const getUnseenMessageCount = async (
 };
 
 export const MessageService = {
-  getAllMessages,
+  getAllMessagesFromDB,
   sendMessage,
   editMessage,
   deleteMessage,

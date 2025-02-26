@@ -303,8 +303,7 @@ const messageSlice = createSlice({
           msg => msg._id === messageId
         );
 
-        if (index !== -1) {
-          // Preserve existing message data and merge with updates
+        if (index !== undefined && index !== -1) {
           state.messagesByChat[chatId][index] = {
             ...state.messagesByChat[chatId][index],
             ...message,
@@ -482,8 +481,6 @@ export const {
   updateMessageReadStatus,
   clearMessages,
 } = messageSlice.actions;
-
-
 
 export const selectMessagesByChatId = createSelector(
   [state => state.messages.messagesByChat, (state, chatId) => chatId],

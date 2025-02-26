@@ -1,7 +1,6 @@
 //backend // src\helpers\socketHelper.ts
 import colors from 'colors';
 import { Server, Socket } from 'socket.io';
-import { logger } from '../shared/logger';
 import { UserService } from '../app/modules/user/user.service';
 import {
   ICallSession,
@@ -9,6 +8,7 @@ import {
 } from '../app/modules/messages/messages.interface';
 import { Types } from 'mongoose';
 import { MessageService } from '../app/modules/messages/messages.service';
+import { logger } from '../shared/logger';
 
 interface ICallSignal {
   type: 'offer' | 'answer' | 'candidate';
@@ -68,25 +68,6 @@ class SocketHelper {
     }
   }
 
-  // private static async handleUserOnline(
-  //   socket: Socket,
-  //   io: Server,
-  //   userId: string
-  // ) {
-  //   try {
-  //     this.connectedSockets.set(socket.id, userId);
-  //     this.logInfo(`User ${userId} is now online`);
-
-  //     await UserService.updateUserOnlineStatus(userId, true);
-  //     const onlineUsers = await UserService.getOnlineUsers();
-  //     io.emit('online-users-update', onlineUsers);
-
-  //     this.logInfo(`Online users found: ${onlineUsers.length}`);
-  //   } catch (error) {
-  //     this.logError(`Error setting user ${userId} online:`, error);
-  //   }
-  // }
-
   private static async handleUserOnline(
     socket: Socket,
     io: Server,
@@ -136,52 +117,6 @@ class SocketHelper {
       `User ${user?._id} (${user?.name}) joined chat room: ${chatId}`
     );
   }
-
-  // private static handleNewMessage(socket: Socket, message: IMessage) {
-  //   if (!message.chat) {
-  //     this.logError('Invalid message format');
-  //     return;
-  //   }
-
-  //   // Extract chatId properly handling both string and object cases
-  //   const chatId =
-  //     typeof message.chat === 'string'
-  //       ? message.chat
-  //       : typeof message.chat === 'object' && message.chat._id
-  //       ? message.chat._id.toString()
-  //       : message.chat.toString();
-
-  //   // Log the actual chatId instead of the object
-  //   console.log(
-  //     `New message received in chat: ${chatId}`,
-  //     {
-  //       messageId: message._id,
-  //       senderId: message.sender?._id,
-  //       content:
-  //         message.content?.substring(0, 50) +
-  //         (message.content?.length > 50 ? '...' : ''),
-  //     },
-  //     'chat id',
-  //     chatId
-  //   );
-  //   console.log(
-  //     'New message received for realtime broadcast, Message data::',
-  //     message
-  //   );
-  //   socket.to(chatId).emit('message-received', message);
-
-  //   // Log with the actual chatId
-  //   this.logInfo(`Message broadcast in chat: ${chatId}`);
-  // }
-
-  // private static handleMessageRead(socket: Socket, data: IMessageReadData) {
-  //   const { messageId, chatId, userId } = data;
-  //   this.logInfo(`Message ${messageId} marked as read by user ${userId}`);
-
-  //   socket
-  //     .to(chatId)
-  //     .emit('message-read-update', { messageId, userId, chatId });
-  // }
 
   private static handleMessageRead(socket: Socket, data: IMessageReadData) {
     const { messageId, chatId, userId } = data;
@@ -411,6 +346,7 @@ class SocketHelper {
 
   private static async handleMessageReaction(
     socket: Socket,
+    io: Server,
     data: IMessageReactionData
   ) {
     const { messageId, chatId, emoji } = data;
@@ -423,7 +359,8 @@ class SocketHelper {
           userId,
           emoji
         );
-        socket.to(chatId).emit('message-updated', updatedMessage);
+        // socket.to(chatId).emit('message-updated', updatedMessage);
+        io.to(chatId).emit('message-updated', updatedMessage);
         this.logInfo(
           `Reaction ${emoji} toggled on message ${messageId} by user ${userId}`
         );
@@ -475,6 +412,52 @@ class SocketHelper {
     }
   }
 
+  private static handleMessagePin(io: Server, updatedMessage: IMessage) {
+    if (!updatedMessage) {
+      logger.error('[Socket] Received empty updated message');
+      return;
+    }
+
+    // Extract chat ID safely
+    const chatId =
+      typeof updatedMessage.chat === 'string'
+        ? updatedMessage.chat
+        : updatedMessage.chat && updatedMessage.chat._id
+        ? updatedMessage.chat._id.toString()
+        : '';
+
+    if (!chatId) {
+      logger.error(
+        '[Socket] Invalid chat id in message-updated event',
+        updatedMessage
+      );
+      return;
+    }
+
+    logger.info(
+      `[Socket] Broadcasting 'message-updated' event to chat room: ${chatId}`,
+      updatedMessage
+    );
+
+    // Debugging: Check active rooms before emitting
+    const connectedRooms = io.sockets.adapter.rooms;
+    logger.info(`[Socket] Active rooms:`, Array.from(connectedRooms.keys()));
+
+    // Ensure room exists before emitting
+    if (!connectedRooms.has(chatId)) {
+      logger.warn(
+        `[Socket] Chat room ${chatId} does not exist! Clients may not have joined it.`
+      );
+    }
+
+    // Emit event to all users in the chat room
+    io.to(chatId).emit('message-updated', updatedMessage);
+
+    logger.info(
+      `[Socket] Successfully emitted 'message-updated' to chat room: ${chatId}`
+    );
+  }
+
   private static async handleDisconnect(socket: Socket, io: Server) {
     const userId = this.connectedSockets.get(socket.id);
 
@@ -524,25 +507,15 @@ class SocketHelper {
       socket.on('message-read', (data: IMessageReadData) =>
         this.handleMessageRead(socket, data)
       );
-      socket.on('message-updated', (updatedMessage: any) => {
-        // Determine the chatId from the message (handle both string and object cases)
-        const chatId =
-          typeof updatedMessage.chat === 'string'
-            ? updatedMessage.chat
-            : updatedMessage.chat && updatedMessage.chat._id
-            ? updatedMessage.chat._id.toString()
-            : '';
-        if (!chatId) {
-          SocketHelper.logError('Invalid chat id in message-updated event');
-          return;
-        }
-        SocketHelper.logInfo(
-          `Broadcasting updated message in chat: ${chatId}`,
+
+      socket.on('message-updated', updatedMessage => {
+        logger.info(
+          `[Socket] Received 'message-updated' event`,
           updatedMessage
         );
-        // Broadcast the updated message to all other sockets in the chat room
-        socket.to(chatId).emit('message-updated', updatedMessage);
+        SocketHelper.handleMessagePin(io, updatedMessage);
       });
+
       socket.on('typing-start', (data: ITypingData) =>
         this.handleTypingStart(socket, data)
       );
@@ -565,7 +538,7 @@ class SocketHelper {
         this.handleCallEnd(io, callId, socket)
       );
       socket.on('message-reaction', (data: IMessageReactionData) =>
-        this.handleMessageReaction(socket, data)
+        this.handleMessageReaction(socket, io, data)
       );
 
       socket.on(

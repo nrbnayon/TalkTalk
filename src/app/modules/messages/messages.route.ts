@@ -61,7 +61,7 @@ router.get(
 router.patch(
   '/:messageId/pin',
   auth(USER_ROLES.USER, USER_ROLES.HOST, USER_ROLES.ADMIN),
-  validateRequest(MessageValidation.messageIdParamSchema),
+  validateRequest(MessageValidation.messageIdPinSchema),
   MessageController.togglePinMessage
 );
 

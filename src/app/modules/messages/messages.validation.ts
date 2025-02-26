@@ -9,6 +9,20 @@ const messageIdParamSchema = z.object({
   }),
 });
 
+const messageIdPinSchema = z.object({
+  params: z.object({
+    messageId: z.string({
+      required_error: 'Message ID is required',
+    }),
+  }),
+  body: z.object({
+    chatId: z.string({
+      required_error: 'Chat ID is required',
+    }),
+    isPinned: z.boolean().optional(),
+  }),
+});
+
 const getChatMessagesZodSchema = z.object({
   params: z.object({
     chatId: z.string({
@@ -72,4 +86,5 @@ export const MessageValidation = {
   editMessageZodSchema,
   searchMessagesZodSchema,
   reactionZodSchema,
+  messageIdPinSchema,
 };

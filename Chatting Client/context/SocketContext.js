@@ -249,7 +249,6 @@ export const SocketProvider = ({ children }) => {
     onlineUsers,
     setOnlineUsers,
     fetchOnlineUsers,
-    updateOnlineUsersViaSocket,
     isUserOnline,
     isSocketWorking,
     setIsSocketWorking,
@@ -385,11 +384,6 @@ export const SocketProvider = ({ children }) => {
       'message-updated': updatedMessage => {
         dispatch(updateMessage(updatedMessage));
       },
-
-      // 'message-deleted': data => {
-      //   console.log('[SocketContext] Message deleted event received:', data);
-      //   dispatch(deleteMessage(data));
-      // },
 
       'message-read-update': data => {
         dispatch(

@@ -34,7 +34,7 @@ async function main() {
         origin: '*',
       },
     });
-
+    app.set('io', io);
     socketHelper.socket(io);
     //@ts-ignore
     global.io = io;
