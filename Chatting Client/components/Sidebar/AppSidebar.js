@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 
 const AppSidebar = () => {
   const { onlineUsers } = useSocket();
+  console.log('Online users in AppSidebar', onlineUsers);
   const dispatch = useDispatch();
   const { user } = useSelector(state => state.auth);
   const { chats, selectedChat } = useSelector(state => state.chat);

@@ -51,6 +51,8 @@ class SocketHelper {
   private static connectedSockets = new Map<string, string>();
   private static typingUsers = new Map<string, NodeJS.Timeout>();
   private static activeCalls = new Map<string, ICallSession>();
+  private static lastOnlineUsersUpdate = 0;
+  private static cachedOnlineUsers: string[] = [];
 
   private static logInfo(message: string, data?: any) {
     if (data) {
@@ -78,20 +80,49 @@ class SocketHelper {
       this.connectedSockets.set(socket.id, userId);
       this.logInfo(`User ${userId} is now online`);
 
-      // Optimistically update online users based on in-memory connectedSockets
-      const onlineUsersOptimistic = Array.from(
-        new Set(this.connectedSockets.values())
-      );
-      io.emit('online-users-update', onlineUsersOptimistic);
-
-      // Then update the DB asynchronously and emit the updated list
+      // Update the DB asynchronously
       await UserService.updateUserOnlineStatus(userId, true);
-      const onlineUsers = await UserService.getOnlineUsers();
-      io.emit('online-users-update', onlineUsers);
-
-      this.logInfo(`Online users found: ${onlineUsers.length}`);
+      
+      // If it's been more than 5 seconds since last update or if we don't have cached users
+      const shouldRefresh = Date.now() - this.lastOnlineUsersUpdate > 5000 || this.cachedOnlineUsers.length === 0;
+      
+      if (shouldRefresh) {
+        const onlineUsers = await UserService.getOnlineUsers();
+        this.cachedOnlineUsers = onlineUsers.map(user => user._id.toString());
+        this.lastOnlineUsersUpdate = Date.now();
+        io.emit('online-users-update', onlineUsers);
+        this.logInfo(`Online users found and broadcast: ${onlineUsers.length}`);
+      } else {
+        // Use cached online users
+        io.emit('online-users-update', this.cachedOnlineUsers);
+        this.logInfo(`Using cached online users: ${this.cachedOnlineUsers.length}`);
+      }
     } catch (error) {
       this.logError(`Error setting user ${userId} online:`, error);
+    }
+  }
+
+  // Handle explicit request for online users
+  private static async handleRequestOnlineUsers(socket: Socket) {
+    try {
+      const userId = this.connectedSockets.get(socket.id);
+      if (!userId) {
+        this.logError('User ID not found for online users request');
+        return;
+      }
+
+      this.logInfo(`User ${userId} requested online users list`);
+      
+      // Get fresh data from the database
+      const onlineUsers = await UserService.getOnlineUsers();
+      this.cachedOnlineUsers = onlineUsers.map(user => user._id.toString());
+      this.lastOnlineUsersUpdate = Date.now();
+      
+      // Send only to the requesting socket
+      socket.emit('online-users-update', onlineUsers);
+      this.logInfo(`Sent online users (${onlineUsers.length}) to user ${userId}`);
+    } catch (error) {
+      this.logError('Error handling online users request:', error);
     }
   }
 
@@ -121,14 +152,6 @@ class SocketHelper {
   private static handleMessageRead(socket: Socket, data: IMessageReadData) {
     const { messageId, chatId, userId } = data;
 
-    // Log for debugging
-    console.log('[SocketHelper] Message read event:', {
-      messageId,
-      chatId,
-      userId,
-      socketId: socket.id,
-    });
-
     // Broadcast to all users in the chat room
     socket.to(chatId).emit('message-read-update', {
       messageId,
@@ -152,13 +175,6 @@ class SocketHelper {
         : typeof message.chat === 'object' && message.chat._id
         ? message.chat._id.toString()
         : message.chat.toString();
-
-    // Log for debugging
-    console.log('[SocketHelper] Broadcasting new message:', {
-      messageId: message._id,
-      chatId,
-      senderId: message.sender?._id,
-    });
 
     // Broadcast to all users in chat room
     socket.to(chatId).emit('message-received', message);
@@ -389,12 +405,6 @@ class SocketHelper {
     const { messageId, chatId } = data;
 
     try {
-      console.log('[SocketHelper] Processing delete message request:', {
-        messageId,
-        chatId,
-        socketId: socket.id,
-      });
-
       // Broadcast delete event to all users in the chat
       io.to(chatId).emit('message-deleted', {
         messageId,
@@ -402,13 +412,9 @@ class SocketHelper {
         timestamp: new Date(),
       });
 
-      console.log(
-        `[SocketHelper] Emitted 'message-deleted' event to chat ${chatId}`
-      );
-
       this.logInfo(`Message ${messageId} deleted in chat ${chatId}`);
     } catch (error) {
-      console.error('[SocketHelper] Error deleting message:', error);
+      this.logError('Error deleting message:', error);
     }
   }
 
@@ -435,20 +441,8 @@ class SocketHelper {
     }
 
     logger.info(
-      `[Socket] Broadcasting 'message-updated' event to chat room: ${chatId}`,
-      updatedMessage
-    );
-
-    // Debugging: Check active rooms before emitting
-    const connectedRooms = io.sockets.adapter.rooms;
-    logger.info(`[Socket] Active rooms:`, Array.from(connectedRooms.keys()));
-
-    // Ensure room exists before emitting
-    if (!connectedRooms.has(chatId)) {
-      logger.warn(
-        `[Socket] Chat room ${chatId} does not exist! Clients may not have joined it.`
-      );
-    }
+      `[Socket] Broadcasting 'message-updated' event to chat room: ${chatId}`
+    )
 
     // Emit event to all users in the chat room
     io.to(chatId).emit('message-updated', updatedMessage);

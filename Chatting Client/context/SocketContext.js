@@ -1,4 +1,3 @@
-// frontend/ context/SocketContext.js
 'use client';
 import {
   createContext,
@@ -21,8 +20,7 @@ import {
 // Constants
 const TYPING_TIMEOUT = 3000;
 const CALL_END_CLEANUP_TIMEOUT = 3000;
-const ONLINE_USERS_FETCH_INTERVAL = 10000; // Increase interval for fallback
-const SOCKET_RECONNECT_TIMEOUT = 5000;
+const SOCKET_HEALTH_CHECK_INTERVAL = 10000;
 
 // Initial context state
 const initialContextState = {
@@ -55,7 +53,7 @@ const useTypingState = () => {
 
   const updateTypingState = useCallback(({ chatId, userId, isTyping }) => {
     console.log(
-      'Find updateTypingState',
+      '[SocketContext] Typing update',
       'isTyping: ',
       isTyping,
       'chatId: ',
@@ -171,40 +169,27 @@ const useCallState = (socket, user) => {
   };
 };
 
-// Custom hook for managing online users
-const useOnlineUsers = (apiUrl, token) => {
+// Custom hook for managing online users with socket as the primary source
+const useOnlineUsers = () => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [lastSocketUpdate, setLastSocketUpdate] = useState(0);
-  const [isSocketWorking, setIsSocketWorking] = useState(false);
-
-  const fetchOnlineUsers = useCallback(
-    async (force = false) => {
-      // Only fetch via HTTP if socket isn't working or force is true
-      if (!isSocketWorking || force) {
-        try {
-          console.log(
-            '[SocketContext] Fallback: Fetching online users via HTTP'
-          );
-          const response = await fetch(`${apiUrl}/api/v1/user/online-users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const data = await response.json();
-
-          if (data.success) {
-            setOnlineUsers(data.data);
-          }
-        } catch (error) {
-          console.error('[SocketContext] Error fetching online users:', error);
-        }
-      }
-    },
-    [apiUrl, token, isSocketWorking]
-  );
 
   const updateOnlineUsersViaSocket = useCallback(users => {
-    setOnlineUsers(users);
-    setLastSocketUpdate(Date.now());
-    setIsSocketWorking(true);
+    if (users) {
+      // Handle both array of user objects or array of user IDs
+      const processedUsers = Array.isArray(users)
+        ? users.map(user => {
+            if (typeof user === 'string') {
+              return { _id: user }; // Convert ID strings to objects
+            }
+            return user;
+          })
+        : [];
+
+      console.log('[SocketContext] Processed online users:', processedUsers);
+      setOnlineUsers(processedUsers);
+      setLastSocketUpdate(Date.now());
+    }
   }, []);
 
   const isUserOnline = useCallback(
@@ -212,28 +197,12 @@ const useOnlineUsers = (apiUrl, token) => {
     [onlineUsers]
   );
 
-  // If we haven't received a socket update in a while, reset isSocketWorking
-  useEffect(() => {
-    const checkSocketAlive = setInterval(() => {
-      if (
-        Date.now() - lastSocketUpdate > SOCKET_RECONNECT_TIMEOUT &&
-        lastSocketUpdate !== 0
-      ) {
-        setIsSocketWorking(false);
-      }
-    }, SOCKET_RECONNECT_TIMEOUT);
-
-    return () => clearInterval(checkSocketAlive);
-  }, [lastSocketUpdate]);
-
   return {
     onlineUsers,
     setOnlineUsers,
-    fetchOnlineUsers,
     updateOnlineUsersViaSocket,
     isUserOnline,
-    isSocketWorking,
-    setIsSocketWorking,
+    lastSocketUpdate,
   };
 };
 
@@ -241,18 +210,17 @@ export const SocketProvider = ({ children }) => {
   const dispatch = useDispatch();
   const socketRef = useRef(null);
   const { user, token } = useSelector(state => state.auth);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   const [typingUsers, updateTypingState] = useTypingState();
   const [connectionState, setConnectionState] = useState('disconnected');
+  const isConnectedRef = useRef(false);
+  const healthCheckTimerRef = useRef(null);
 
   const {
     onlineUsers,
-    setOnlineUsers,
-    fetchOnlineUsers,
+    updateOnlineUsersViaSocket,
     isUserOnline,
-    isSocketWorking,
-    setIsSocketWorking,
-  } = useOnlineUsers(apiUrl, token);
+    lastSocketUpdate,
+  } = useOnlineUsers();
 
   const {
     incomingCall,
@@ -266,9 +234,31 @@ export const SocketProvider = ({ children }) => {
     sendCallSignal,
   } = useCallState(socketRef.current, user);
 
+  // Helper to check socket health
+  const checkSocketHealth = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket) return false;
+
+    // Check if socket is actually connected
+    const isConnected = socket.connected;
+
+    // Update connected state if it changed
+    if (isConnectedRef.current !== isConnected) {
+      isConnectedRef.current = isConnected;
+      setConnectionState(isConnected ? 'connected' : 'disconnected');
+      console.log(
+        `[SocketContext] Socket connection status changed to: ${
+          isConnected ? 'connected' : 'disconnected'
+        }`
+      );
+    }
+
+    return isConnected;
+  }, []);
+
+  // Initialize socket connection
   useEffect(() => {
     let isMounted = true;
-    let fallbackInterval = null;
 
     const initializeSocket = async () => {
       if (!user?._id || !token) return;
@@ -279,21 +269,23 @@ export const SocketProvider = ({ children }) => {
 
         if (isMounted) {
           socketRef.current = newSocket;
+          isConnectedRef.current = newSocket.connected;
 
           // Setup connection state listeners
           newSocket.on('connect', () => {
             console.log('[SocketContext] Socket connected');
             setConnectionState('connected');
-            setIsSocketWorking(true);
+            isConnectedRef.current = true;
             socketServiceInstance.setUserOnline(user._id);
-            // Fetch initial online users after connection
-            fetchOnlineUsers(true);
+
+            // Request initial online users after connection
+            newSocket.emit('request-online-users');
           });
 
           newSocket.on('disconnect', () => {
             console.log('[SocketContext] Socket disconnected');
             setConnectionState('disconnected');
-            setIsSocketWorking(false);
+            isConnectedRef.current = false;
           });
 
           newSocket.on('reconnecting', () => {
@@ -303,31 +295,56 @@ export const SocketProvider = ({ children }) => {
 
           if (newSocket.connected) {
             socketServiceInstance.setUserOnline(user._id);
-            fetchOnlineUsers(true);
+
+            newSocket.on('online-users-update', data => {
+              console.log('[SocketContext] Initial online users update:', data);
+              updateOnlineUsersViaSocket(data);
+            });
+
+            newSocket.emit('request-online-users');
           }
         }
       } catch (error) {
         console.error('[SocketContext] Socket connection error:', error);
-        setIsSocketWorking(false);
+        isConnectedRef.current = false;
+        setConnectionState('error');
       }
     };
 
     if (user && token) {
       initializeSocket();
 
-      // Fallback interval - only fetches if socket isn't working
-      fallbackInterval = setInterval(() => {
-        if (!isSocketWorking) {
+      // Setup socket health check interval
+      healthCheckTimerRef.current = setInterval(() => {
+        const isConnected = checkSocketHealth();
+
+        // If socket lost connection, try to reconnect
+        if (!isConnected && socketRef.current) {
           console.log(
-            '[SocketContext] Using fallback HTTP polling for online users'
+            '[SocketContext] Socket health check: Connection lost, reconnecting...'
           );
-          fetchOnlineUsers();
+          socketServiceInstance
+            .ensureConnection()
+            .then(socket => {
+              if (socket && socket.connected) {
+                socketRef.current = socket;
+                isConnectedRef.current = true;
+                setConnectionState('connected');
+                socket.emit('user-online', user._id);
+                socket.emit('request-online-users');
+              }
+            })
+            .catch(err => {
+              console.error('[SocketContext] Reconnection failed:', err);
+            });
         }
-      }, ONLINE_USERS_FETCH_INTERVAL);
+      }, SOCKET_HEALTH_CHECK_INTERVAL);
 
       return () => {
         isMounted = false;
-        clearInterval(fallbackInterval);
+        if (healthCheckTimerRef.current) {
+          clearInterval(healthCheckTimerRef.current);
+        }
         if (socketRef.current) {
           socketServiceInstance.disconnect();
           socketRef.current = null;
@@ -337,23 +354,19 @@ export const SocketProvider = ({ children }) => {
 
     return () => {
       isMounted = false;
-      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (healthCheckTimerRef.current) {
+        clearInterval(healthCheckTimerRef.current);
+      }
     };
-  }, [
-    apiUrl,
-    user,
-    token,
-    fetchOnlineUsers,
-    isSocketWorking,
-    setIsSocketWorking,
-  ]);
+  }, [user, token, checkSocketHealth, updateOnlineUsersViaSocket]);
 
+  // Socket event handlers for messages
   useEffect(() => {
     if (!socketRef.current) return;
 
     const handleDelete = data => {
       console.log('[SocketContext] Message deleted event received:', data);
-      dispatch(deleteMessage(data)); // Ensure Redux updates
+      dispatch(deleteMessage(data));
     };
 
     socketRef.current.on('message-deleted', handleDelete);
@@ -363,74 +376,35 @@ export const SocketProvider = ({ children }) => {
     };
   }, [dispatch]);
 
-  // Socket event handlers
-
+  // Main socket event handlers
   useEffect(() => {
     if (!socketRef.current) return;
 
     const currentSocket = socketRef.current;
 
-    const socketEventHandlers = {
-      'online-users-update': users => {
-        setOnlineUsers(prevUsers => {
-          const hasChanged =
-            JSON.stringify(prevUsers) !== JSON.stringify(users);
-          return hasChanged ? users : prevUsers;
-        });
-      },
-      'message-received': message => {
-        dispatch(addMessage(message));
-      },
-      'message-updated': updatedMessage => {
-        dispatch(updateMessage(updatedMessage));
-      },
+   const socketEventHandlers = {
+     connect: () => {
+       console.log('[SocketContext] Socket connected event received');
+     },
+     'online-users-update': users => {
+       console.log(
+         '[SocketContext] Received online users update:',
+         'Type:',
+         typeof users,
+         'Is Array:',
+         Array.isArray(users),
+         'Length:',
+         users?.length,
+         'Data:',
+         JSON.stringify(users).substring(0, 100)
+       );
+       updateOnlineUsersViaSocket(users);
+     },
+     // other handlers...
+   };
 
-      'message-read-update': data => {
-        dispatch(
-          updateMessageReadStatus({
-            messageId: data.messageId,
-            chatId: data.chatId,
-            userId: data.userId,
-          })
-        );
-      },
-      'message-read-update': data => {
-        dispatch(markMessageAsRead(data));
-      },
-
-      'typing-update': updateTypingState,
-      'call-incoming': callSession => {
-        setIncomingCall(callSession);
-      },
-      'call-status-update': updateData => {
-        if (updateData.status === 'ongoing') {
-          setCurrentCall(prev => ({
-            ...prev,
-            status: 'ongoing',
-            acceptedBy: updateData.acceptedBy,
-          }));
-          setIncomingCall(null);
-        }
-      },
-      'call-ended': endData => {
-        setCurrentCall(prev => ({
-          ...prev,
-          status: endData.status,
-          endedBy: endData.endedBy || endData.rejectedBy,
-          endTime: new Date(),
-        }));
-        setTimeout(() => setCurrentCall(null), CALL_END_CLEANUP_TIMEOUT);
-      },
-      'call-signal-received': signalData => {
-        if (currentCall && currentCall._id === signalData.callId) {
-          window.dispatchEvent(
-            new CustomEvent('webrtc-signal', {
-              detail: signalData,
-            })
-          );
-        }
-      },
-    };
+   // After setting up all event handlers
+   console.log('[SocketContext] Event handlers setup complete');
 
     // Register all event handlers
     Object.entries(socketEventHandlers).forEach(([event, handler]) => {
@@ -451,7 +425,7 @@ export const SocketProvider = ({ children }) => {
     dispatch,
     currentCall,
     typingUsers,
-    setOnlineUsers,
+    updateOnlineUsersViaSocket,
     updateTypingState,
     setIncomingCall,
     setCurrentCall,
@@ -476,14 +450,12 @@ export const SocketProvider = ({ children }) => {
 
     startTyping: useCallback(
       (chatId, typingData) => {
-        console.log('[SocketContext] Typing started:', typingData);
-
         if (!socketRef.current || !user?._id || !chatId) return;
         socketRef.current.emit('typing-start', {
           chatId,
           userId: user._id,
           name: user.name,
-          content: typingData.content,
+          content: typingData?.content || '',
         });
       },
       [user]
@@ -517,6 +489,14 @@ export const SocketProvider = ({ children }) => {
         emoji,
       });
     }, []),
+
+    refreshOnlineUsers: useCallback(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('request-online-users');
+        return true;
+      }
+      return false;
+    }, []),
   };
 
   const contextValue = {
@@ -527,6 +507,7 @@ export const SocketProvider = ({ children }) => {
     currentCall,
     isUserOnline,
     connectionState,
+    isConnected: isConnectedRef.current,
     ...socketActions,
     initiateCall,
     acceptCall,
@@ -549,24 +530,3 @@ export const useSocket = () => {
   }
   return context;
 };
-
-// Server (socketHelper)         Client (SocketContext)
-// 'user-online'          <-->  'user-online'
-// 'join-chat'           <-->  'join-chat'
-// 'typing-start/stop'   <-->  'typing-update'
-// 'new-message'         <-->  'message-received'
-// 'call-initiate'       <-->  'call-incoming'
-// 'message-reaction'    <-->  'message-updated'
-
-// Connection State Management:
-
-// Add connection state tracking in SocketContext
-// const [connectionState, setConnectionState] = useState('disconnected');
-
-// useEffect(() => {
-//   if (socket) {
-//     socket.on('connect', () => setConnectionState('connected'));
-//     socket.on('disconnect', () => setConnectionState('disconnected'));
-//     socket.on('reconnecting', () => setConnectionState('reconnecting'));
-//   }
-// }, [socket]);

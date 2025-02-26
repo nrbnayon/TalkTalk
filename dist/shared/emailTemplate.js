@@ -1,0 +1,45 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.emailTemplate = void 0;
+const createAccount = (values) => {
+    // console.log('Email Template for Account Creation: ', values);
+    const data = {
+        to: values.email,
+        subject: 'Verify your account',
+        html: `<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; margin: 50px; padding: 20px; color: #555;">
+    <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        <img src="https://i.ibb.co.com/4J6qksk/Logo.png" alt="Logo" style="display: block; margin: 0 auto 20px; width:150px" />
+          <h2 style="color: #BB6D42; font-size: 24px; margin-bottom: 20px;">Hi ${(values === null || values === void 0 ? void 0 : values.name) || (values === null || values === void 0 ? void 0 : values.email)},</h2>
+        <div style="text-align: center;">
+            <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your one time password (OTP) code is:</p>
+            <div style="background-color: #BB6D42; width: 120px; padding: 10px; text-align: center; border-radius: 8px; color: #fff; font-size: 25px; letter-spacing: 2px; margin: 20px auto;">${values.otp}</div>
+            <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">This code is valid for 3 minutes.</p>
+              <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;text-align:left">If you didn't request this code, you can safely ignore this email. Someone else might have typed your email address by mistake.</p>
+        </div>
+    </div>
+</body>`,
+    };
+    return data;
+};
+const resetPassword = (values) => {
+    const data = {
+        to: values.email,
+        subject: 'Reset your password',
+        html: `<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; margin: 50px; padding: 20px; color: #555;">
+    <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        <img src="https://i.ibb.co.com/4J6qksk/Logo.png" alt="Logo" style="display: block; margin: 0 auto 20px; width:150px" />
+        <div style="text-align: center;">
+            <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your new one time password (OTP) code is:</p>
+            <div style="background-color: #BB6D42; width: 120px; padding: 10px; text-align: center; border-radius: 8px; color: #fff; font-size: 25px; letter-spacing: 2px; margin: 20px auto;">${values.otp}</div>
+            <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">This code is valid for 3 minutes.</p>
+              <p style="color: #555; font-size: 16px; line-height: 1.5; margin-bottom: 20px;text-align:left">If you didn't request this code, you can safely ignore this email. Someone else might have typed your email address by mistake.</p>
+        </div>
+    </div>
+</body>`,
+    };
+    return data;
+};
+exports.emailTemplate = {
+    createAccount,
+    resetPassword,
+};

@@ -12,15 +12,15 @@ import { useSocket } from '@/context/SocketContext';
 const UserHome = () => {
   const formattedDate = moment().format('dddd, MMMM Do YYYY');
   const { user } = useSelector(state => state.auth);
-  const { onlineUsers } = useSocket();
-
+  const { onlineUsers, connectionState, socket } = useSocket();
+  console.log('UserHome - Online Users:', onlineUsers);
+  console.log('UserHome - Socket Connection State:', connectionState);
+  console.log('UserHome - Socket Connected:', socket?.connected);
   // Check if the current user is online
   const isOnline =
     user ||
     (Array.isArray(onlineUsers) &&
       onlineUsers.some(onlineUser => onlineUser._id === user._id));
-
-  // console.log('Online Users:', onlineUsers, isOnline, user); //why current usr isOnline need more time
 
   const cardVariants = {
     initial: { opacity: 0, y: 20 },
