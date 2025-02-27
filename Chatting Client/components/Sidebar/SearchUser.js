@@ -1,80 +1,144 @@
-// Chatting Client\components\Sidebar\SearchUser.js
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { UserSearch } from 'lucide-react';
+import { UserSearch, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import SearchResults from './SearchResults';
 import useDebounce from '@/hooks/useDebounce';
+import { useDynamicTypesQuery } from '@/redux/features/dynamicType/dynamicTypeApiSlice';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function SearchUser({ showSearch }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchedOnce, setSearchedOnce] = useState(false);
+  const [error, setError] = useState(null);
   const searchbarRef = useRef(null);
 
+  // Debounce search term to avoid excessive API calls
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Fetch all users if no search results using the dynamic API
+  const { data: allUsers, isLoading: allUsersLoading } = useDynamicTypesQuery({
+    dynamicApi: 'users',
+    searchParams: {},
+  });
+
   useEffect(() => {
+    const searchbar = searchbarRef.current;
+
     if (showSearch) {
-      searchbarRef.current?.focus();
+      searchbar?.focus();
     } else {
-      searchbarRef.current?.blur();
+      searchbar?.blur();
     }
 
-    return () => searchbarRef.current?.blur();
+    return () => searchbar?.blur();
   }, [showSearch]);
 
-  const searchUser = useDebounce(async searchQuery => {
-    try {
-      const res = await axiosInstance.get(
-        `/auth/search?searchTerm=${searchQuery}`
-      );
-
-      if (res?.data?.success) {
+  // Effect for handling the debounced search term
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!debouncedSearchTerm) {
         setIsLoading(false);
-        setResults(res?.data?.users);
+        setResults([]);
+        setError(null);
+        return;
       }
-    } catch (err) {
-      console.log(err.response?.data?.message);
+
+      setIsLoading(true);
+      setSearchedOnce(true);
+      setError(null);
+
+      try {
+        console.log('Searching for:', debouncedSearchTerm);
+        const response = await fetch(
+          `/api/alluser?searchTerm=${encodeURIComponent(debouncedSearchTerm)}`
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Server responded with ${response.status}: ${errorText}`
+          );
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          setResults(data.data || []);
+        } else {
+          setError(data.message || 'Search failed');
+          setResults([]);
+        }
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setError(error.message || 'Failed to search users');
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    searchUsers();
+  }, [debouncedSearchTerm]);
+
+  // Use all users if search returned no results
+  useEffect(() => {
+    if (
+      searchedOnce &&
+      results.length === 0 &&
+      !isLoading &&
+      !error &&
+      allUsers?.data?.length > 0
+    ) {
+      setResults(allUsers.data);
     }
-  }, 700);
+  }, [searchedOnce, results.length, isLoading, allUsers, error]);
 
   const handleSearchTerm = e => {
     const query = e.target.value;
-    setIsLoading(true);
     setSearchTerm(query);
-    if (query?.length > 0) {
-      searchUser(query);
-    } else {
-      setIsLoading(false);
+
+    if (!query) {
+      setSearchedOnce(false);
       setResults([]);
+      setError(null);
     }
   };
 
   return (
     <div className="w-full max-w-md mx-auto relative">
-      <div className="join w-full rounded flex justify-center my-4">
-        <label className="input rounded focus:border-none outline-0 focus:outline-0 focus-within:outline-0">
-          <UserSearch />
-          <input
+      <div className="flex items-center px-4 py-2">
+        <div className="relative w-full">
+          <UserSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
             ref={searchbarRef}
             type="search"
-            className="focus:outline-0"
-            placeholder="search user to connect"
-            required
+            className="w-full pl-10 bg-gray-50"
+            placeholder="Search users to connect"
             value={searchTerm}
             onChange={handleSearchTerm}
           />
-        </label>
-        {/* <button type="submit" className="btn btn-neutral join-item">
-          <UserSearch size={18} />
-        </button> */}
+        </div>
       </div>
-      <SearchResults
-        results={results}
-        isLoading={isLoading}
-        searchTerm={searchTerm}
-        setResults={setResults}
-        setIsLoading={setIsLoading}
-        setSearchTerm={setSearchTerm}
-      />
+
+      {error && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {(searchTerm || results.length > 0) && !error && (
+        <SearchResults
+          results={results}
+          isLoading={isLoading || allUsersLoading}
+          searchTerm={searchTerm}
+          setResults={setResults}
+          setSearchTerm={setSearchTerm}
+        />
+      )}
     </div>
   );
 }

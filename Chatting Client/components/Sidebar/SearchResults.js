@@ -1,93 +1,115 @@
 // Chatting Client\components\Sidebar\SearchResults.js
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { UserSearch } from 'lucide-react';
-import SearchResults from './SearchResults';
-import { useDynamicTypesQuery } from '@/redux/features/dynamicType/dynamicTypeApiSlice';
-import useDebounce from '@/hooks/useDebounce';
+import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { useSocket } from '@/context/SocketContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { accessChat } from '@/redux/features/chat/chatSlice';
+import UserProfileDialog from '@/components/User/UserProfileDialog';
 
-export default function SearchUser({ showSearch }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const searchbarRef = useRef(null);
-  const [searchedOnce, setSearchedOnce] = useState(false);
+export default function SearchResults({
+  results,
+  isLoading,
+  searchTerm,
+  setResults,
+  setSearchTerm,
+}) {
+  const { onlineUsers } = useSocket();
+  const dispatch = useDispatch();
+  const { user: currentUser } = useSelector(state => state.auth);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  useEffect(() => {
-    if (showSearch) {
-      searchbarRef.current?.focus();
-    } else {
-      searchbarRef.current?.blur();
-    }
+  const isUserOnline = userId => {
+    return onlineUsers.some(onlineUser => onlineUser._id === userId);
+  };
 
-    return () => searchbarRef.current?.blur();
-  }, [showSearch]);
+  const handleUserClick = user => {
+    setSelectedUser(user);
+    setIsProfileOpen(true);
+  };
 
-  const searchUser = useDebounce(async searchQuery => {
+  const handleStartChat = async userId => {
     try {
-      const res = await axiosInstance.get(
-        `/auth/search?searchTerm=${searchQuery}`
-      );
-
-      if (res?.data?.success) {
-        setIsLoading(false);
-        setResults(res?.data?.users);
-        setSearchedOnce(true);
-      }
-    } catch (err) {
-      console.log(err.response?.data?.message);
-    }
-  }, 700);
-
-  // Fetch all users if no search results
-  const { data: allUsers, isLoading: allUsersLoading } = useDynamicTypesQuery({
-    dynamicApi: 'users',
-  });
-
-  useEffect(() => {
-    if (searchedOnce && results.length === 0 && allUsers) {
-      setResults(allUsers);
-      setIsLoading(false);
-    }
-  }, [allUsers, searchedOnce, results.length]);
-
-  const handleSearchTerm = e => {
-    const query = e.target.value;
-    setIsLoading(true);
-    setSearchTerm(query);
-    setSearchedOnce(false);
-
-    if (query?.length > 0) {
-      searchUser(query);
-    } else {
-      setIsLoading(false);
+      await dispatch(accessChat(userId)).unwrap();
+      // Clear search results and term after starting a chat
       setResults([]);
+      setSearchTerm('');
+      setIsProfileOpen(false);
+    } catch (error) {
+      console.error('Failed to start chat:', error);
     }
   };
 
-  return (
-    <div className="w-full max-w-md mx-auto relative">
-      <div className="join w-full rounded flex justify-center my-4">
-        <label className="input rounded focus:border-none outline-0 focus:outline-0 focus-within:outline-0">
-          <UserSearch />
-          <input
-            ref={searchbarRef}
-            type="search"
-            className="focus:outline-0"
-            placeholder="Search user to connect"
-            required
-            value={searchTerm}
-            onChange={handleSearchTerm}
-          />
-        </label>
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-4">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
       </div>
-      <SearchResults
-        results={results}
-        isLoading={isLoading || allUsersLoading}
-        searchTerm={searchTerm}
-        setResults={setResults}
-        setIsLoading={setIsLoading}
-        setSearchTerm={setSearchTerm}
+    );
+  }
+
+  if (results.length === 0 && searchTerm) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        No users found matching &quot;{searchTerm}&quot;
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-md shadow-lg max-h-80 overflow-y-auto">
+      <div className="p-2">
+        {results.length > 0 && (
+          <p className="text-xs text-gray-500 mb-2 px-2">
+            {results.length} user{results.length !== 1 ? 's' : ''} found
+          </p>
+        )}
+
+        {results.map(user => {
+          // Skip current user
+          if (user._id === currentUser?._id) return null;
+
+          const isOnline = isUserOnline(user._id);
+
+          return (
+            <div
+              key={user._id}
+              className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md cursor-pointer"
+              onClick={() => handleUserClick(user)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.image} alt={user.name} />
+                    <AvatarFallback>
+                      {user.name?.substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span
+                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                      isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{user.name}</p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        user={selectedUser}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        onStartChat={handleStartChat}
       />
     </div>
   );

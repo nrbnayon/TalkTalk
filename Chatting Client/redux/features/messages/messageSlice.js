@@ -226,11 +226,32 @@ export const unpinMessage = createAsyncThunk(
   }
 );
 
+export const updateUnreadCount = createAsyncThunk(
+  'messages/updateUnreadCount',
+  async ({ chatId, userId }, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `/api/messages/unread-count?chatId=${chatId}&userId=${userId}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update unread count');
+      }
+
+      const data = await response.json();
+      return { chatId, unreadCount: data.unreadCount };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const messageSlice = createSlice({
   name: 'messages',
   initialState: {
     messagesByChat: {},
     meta: {},
+    unreadCounts: {},
     loading: false,
     error: null,
     initialized: {},

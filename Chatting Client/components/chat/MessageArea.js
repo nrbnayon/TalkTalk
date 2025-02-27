@@ -19,10 +19,7 @@ import { EmptyStateMessage, LottieLoading } from '../Animations/Loading';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import TypingIndicator from './TypingIndicator';
 
-const MessagesArea = ({
-  currentUser,
-  chatId,
-}) => {
+const MessagesArea = ({ currentUser, chatId }) => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
@@ -50,6 +47,8 @@ const MessagesArea = ({
   const messages = useSelector(state => selectMessagesByChatId(state, chatId));
   const messageContainerRef = useRef(null);
   const { typingUsers } = useChatMessages(chatId, messages);
+
+  console.log('MessagesArea get message meta:::', meta);
   // Initialize messages
   useEffect(() => {
     if (chatId && chatId !== 'undefined') {

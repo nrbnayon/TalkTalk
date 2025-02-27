@@ -14,6 +14,8 @@ import {
   Archive,
   Filter,
   ShieldBan,
+  UserPlus2,
+  UserPlus2Icon,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +24,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Sidebar } from '../ui/sidebar';
 import { useSocket } from '@/context/SocketContext';
@@ -39,6 +42,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { Tooltip } from '@/components/ui/tooltip';
 import { GenerateSlug } from '@/utils/GenerateSlug';
+import { UserX, UserSearch } from 'lucide-react';
 import UserMenu from '../Auth/UserMenu';
 import { cn } from '@/lib/utils';
 import SearchUser from './SearchUser';
@@ -51,14 +55,24 @@ const AppSidebar = () => {
   const [filteredChats, setFilteredChats] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-   const [showSearch, setShowSearch] = useState(false);
   const [filterType, setFilterType] = useState('all');
-
+  const [showSearch, setShowSearch] = useState(true);
   const userName = GenerateSlug(user?.name);
 
   const isUserOnline = userId => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
+
+  // console.log(
+  //   'Get Login user in AppSidebar',
+  //   user,
+  //   'My All chats:',
+  //   chats,
+  //   'Select for chat:',
+  //   selectedChat,
+  //   'Online users:',
+  //   onlineUsers
+  // );
 
   useEffect(() => {
     if (user) {
@@ -335,8 +349,15 @@ const AppSidebar = () => {
               </button>
             </Tooltip>{' '}
             <Tooltip content="Filter">
-              <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
+              {/* <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
                 <Filter className="h-5 w-5" />
+              </button> */}
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className="hover:cursor-pointer tooltip"
+                data-tip={`${showSearch ? 'Close search' : 'Search user'}`}
+              >
+                {showSearch ? <UserX /> : <UserSearch />}
               </button>
             </Tooltip>
             <button className="p-1 hover:bg-gray-100 rounded">
@@ -344,7 +365,7 @@ const AppSidebar = () => {
             </button>
           </div>
         </div>
-        <div className="relative">
+        <div className={`relative ${showSearch ? 'hidden' : 'hidden'}`}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             type="text"
@@ -355,8 +376,7 @@ const AppSidebar = () => {
           />
         </div>
       </div>
-
-      {searchQuery && <SearchUser showSearch={searchQuery} />}
+      {showSearch && <SearchUser showSearch={showSearch} />}
 
       {/* Tabs */}
       <div className="flex gap-2 p-2 overflow-x-auto border-b border-gray-200">

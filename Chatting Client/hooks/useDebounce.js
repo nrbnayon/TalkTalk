@@ -1,27 +1,21 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
-const useDebounce = (callback, delay) => {
-  const timeoutIdRef = useRef(null);
+// This hook returns a debounced value instead of a debounced function
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
-    return () => {
-      if (timeoutIdRef.current) {
-        clearTimeout(timeoutIdRef.current);
-      }
-    };
-  }, []);
-
-  const debouncedCallback = (...args) => {
-    if (timeoutIdRef.current) {
-      clearTimeout(timeoutIdRef.current);
-    }
-
-    timeoutIdRef.current = setTimeout(() => {
-      callback(...args);
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
     }, delay);
-  };
-  return debouncedCallback;
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
 };
 
 export default useDebounce;

@@ -19,6 +19,6 @@ export const apiSlice = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Auth", "DynamicType"],
+  tagTypes: ["Auth", "DynamicType", 'User', 'Chat', 'Message'],
   endpoints: (builder) => ({}),
 });
