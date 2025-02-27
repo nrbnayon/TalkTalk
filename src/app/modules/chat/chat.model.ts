@@ -56,7 +56,12 @@ const chatSchema = new Schema<IChat>(
         ref: 'User',
       },
     ],
+    isBlocked: { type: Boolean, default: false },
+    unreadCount: {
+      type: Number,
+    },
   },
+
   {
     timestamps: true,
     toJSON: {

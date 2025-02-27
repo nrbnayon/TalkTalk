@@ -158,6 +158,22 @@ const AppSidebar = () => {
     },
   ];
 
+  useEffect(() => {
+    if (!chats) return;
+
+    let sortedChats = [...chats];
+
+    // Sort by latest message time
+    sortedChats.sort((a, b) => {
+      const lastMessageTimeA = a.latestMessage?.createdAt || a.createdAt;
+      const lastMessageTimeB = b.latestMessage?.createdAt || b.createdAt;
+
+      return new Date(lastMessageTimeB) - new Date(lastMessageTimeA);
+    });
+
+    setFilteredChats(sortedChats);
+  }, [chats]);
+
   const handleTabChange = tabId => {
     setActiveTab(tabId);
     setFilterType(tabId);
@@ -165,6 +181,12 @@ const AppSidebar = () => {
 
   const handleChatClick = chat => {
     dispatch(selectChat(chat));
+    if (chat.unreadCount > 0) {
+      socket.emit('message-read', { chatId: chat._id, userId: user._id });
+      dispatch(
+        updateUnreadCount({ chatId: chat._id, increment: -chat.unreadCount })
+      );
+    }
   };
 
   const handlePinChat = (e, chatId) => {
@@ -202,6 +224,7 @@ const AppSidebar = () => {
     const lastMessage = chat.latestMessage;
 
     const isOnline = isUserOnline(otherUser?._id);
+    const isBlocked = chat.blockedBy?.includes(user?._id);
 
     const unreadCount =
       lastMessage && !lastMessage.readBy?.includes(user?._id) ? 1 : 0;
@@ -238,12 +261,16 @@ const AppSidebar = () => {
               />
             )}
             {/* Show block icon at top left */}
-            {chat.isBlocked && (
+            {isBlocked && (
+              <ShieldBan className="absolute -bottom-1 -right-1 h-4 w-4 text-red-500" />
+            )}
+
+            {/* {chat.isBlocked && (
               <ShieldBan
                 className="absolute -bottom-1 -right-1 h-4 w-4 text-red-500"
                 fill="currentColor"
               />
-            )}
+            )} */}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -300,7 +327,7 @@ const AppSidebar = () => {
                 className="flex items-center gap-2"
               >
                 <Pin className="h-4 w-4" />
-                {chat.isPinned ? 'Unpin chat' : 'Pin chat'}
+                {chat.isPinned ? 'Unpin' : 'Pin'}
               </DropdownMenuItem>
               {/* <DropdownMenuItem className='flex items-center gap-2'>
                 <Video className='h-4 w-4' />
@@ -320,14 +347,14 @@ const AppSidebar = () => {
                 className="flex items-center gap-2 text-red-500"
               >
                 <ShieldBan className="h-4 w-4" />
-                {chat.isBlocked ? 'Unblock chat' : 'Block chat'}
+                {isBlocked ? 'Unblock' : 'Block'}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => dispatch(deleteChat(chat._id))}
                 className="flex items-center gap-2 text-red-500"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete chat
+                Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

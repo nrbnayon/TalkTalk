@@ -16,6 +16,7 @@ import {
   markMessageAsRead,
   deleteMessage,
   updateMessageReadStatus,
+  updateUnreadCount,
 } from '@/redux/features/messages/messageSlice';
 
 // Constants
@@ -358,8 +359,13 @@ export const SocketProvider = ({ children }) => {
 
     socketRef.current.on('message-deleted', handleDelete);
 
+    socketRef.current.on('chat-block-status-updated', data => {
+      dispatch(updateChatBlockStatus(data));
+    });
+
     return () => {
       socketRef.current?.off('message-deleted', handleDelete);
+      socketRef.current.off('chat-block-status-updated');
     };
   }, [dispatch]);
 
@@ -380,6 +386,9 @@ export const SocketProvider = ({ children }) => {
       },
       'message-received': message => {
         dispatch(addMessage(message));
+        if (message.sender._id !== user._id) {
+          dispatch(updateUnreadCount({ chatId: message.chat, increment: 1 }));
+        }
       },
       'message-updated': updatedMessage => {
         dispatch(updateMessage(updatedMessage));
@@ -393,10 +402,11 @@ export const SocketProvider = ({ children }) => {
             userId: data.userId,
           })
         );
+        // dispatch(updateUnreadCount({ chatId: data.chatId, userId: user._id }));
       },
-      'message-read-update': data => {
-        dispatch(markMessageAsRead(data));
-      },
+      // 'message-read-update': data => {
+      //   dispatch(markMessageAsRead(data));
+      // },
 
       'typing-update': updateTypingState,
       'call-incoming': callSession => {
@@ -455,6 +465,7 @@ export const SocketProvider = ({ children }) => {
     updateTypingState,
     setIncomingCall,
     setCurrentCall,
+    user,
   ]);
 
   // Socket action methods

@@ -1,10 +1,10 @@
 // src\app\modules\chat\chat.service.ts
 import httpStatus from 'http-status';
-import { Types } from 'mongoose';
 import ApiError from '../../../errors/ApiError';
 import { User } from '../user/user.model';
 import { IChat } from './chat.interface';
 import { Chat } from './chat.model';
+import { Message } from '../messages/messages.model';
 
 const accessChat = async (
   userId: string,
@@ -95,9 +95,17 @@ const getAllChats = async (userId: string): Promise<IChat[]> => {
         select: 'name email image onlineStatus',
       },
     })
-    .sort({ updatedAt: -1 });
+    .sort({ updatedAt: -1 })
+    .lean();
 
-  return chats.map(chat => chat.toObject());
+  for (let chat of chats) {
+    chat.unreadCount = await Message.countDocuments({
+      chat: chat._id,
+      readBy: { $ne: userId }, // Messages NOT read by the user
+    });
+  }
+
+  return chats;
 };
 
 const createGroupChat = async (
@@ -379,22 +387,32 @@ const blockUnblockUser = async (
   userId: string
 ): Promise<IChat> => {
   const chat = await Chat.findById(chatId);
+
   if (!chat) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Chat not found');
   }
 
-  // Check if user is already blocked
-  const isBlocked =
-    chat.blockedBy && chat.blockedBy.some(id => id.toString() === userId);
+  // ❌ Prevent blocking in group chats
+  if (chat.isGroupChat) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot block a group chat');
+  }
 
-  // Update operation - add or remove from blockedBy array
-  const updateOperation = isBlocked
-    ? { $pull: { blockedBy: userId } }
-    : { $addToSet: { blockedBy: userId } };
+  // ✅ Ensure only the blocker can unblock
+  const isBlocked = chat.blockedBy.includes(userId);
 
-  const updatedChat = await Chat.findByIdAndUpdate(chatId, updateOperation, {
-    new: true,
-  })
+  if (isBlocked) {
+    // Remove user from `blockedBy` array
+    chat.blockedBy = chat.blockedBy.filter(id => id.toString() !== userId);
+  } else {
+    // Add user to `blockedBy` array
+    chat.blockedBy.push(userId);
+  }
+
+  // Save updated chat
+  await chat.save();
+
+  // ✅ Fetch updated chat with populated fields
+  const updatedChat = await Chat.findById(chatId)
     .populate({
       path: 'users',
       select: 'name email image onlineStatus lastActiveAt status verified',

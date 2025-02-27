@@ -9,6 +9,7 @@ import {
 import { Types } from 'mongoose';
 import { MessageService } from '../app/modules/messages/messages.service';
 import { logger } from '../shared/logger';
+import { Chat } from '../app/modules/chat/chat.model';
 
 interface ICallSignal {
   type: 'offer' | 'answer' | 'candidate';
@@ -456,6 +457,20 @@ class SocketHelper {
     logger.info(
       `[Socket] Successfully emitted 'message-updated' to chat room: ${chatId}`
     );
+  }
+
+  private static async handleBlockUnblock(
+    io: Server,
+    chatId: string,
+    userId: any
+  ) {
+    const chat = await Chat.findById(chatId);
+    if (!chat) return;
+
+    io.to(chatId).emit('chat-block-status-updated', {
+      chatId,
+      isBlocked: chat.blockedBy.includes(userId),
+    });
   }
 
   private static async handleDisconnect(socket: Socket, io: Server) {

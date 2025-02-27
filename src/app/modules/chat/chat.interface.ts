@@ -15,7 +15,9 @@ export interface IChat {
   updatedAt?: Date;
   deletedBy: Types.ObjectId[] | IUser[];
   blockedBy: Types.ObjectId[] | IUser[];
+  isBlocked?: boolean;
   pinnedBy: Types.ObjectId[] | IUser[];
+  unreadCount?: number;
 }
 
 export interface IChatFilters {

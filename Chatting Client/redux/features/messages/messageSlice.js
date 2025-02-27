@@ -280,30 +280,22 @@ const messageSlice = createSlice({
       }
     },
     updateMessageReadStatus: (state, action) => {
-      const { messageId, chatId, userId } = action.payload;
-      console.log('[messageSlice] Updating read status:', {
-        messageId,
-        chatId,
-        userId,
-      });
-
+      const { chatId, messageId, userId } = action.payload;
       if (state.messagesByChat[chatId]) {
-        const message = state.messagesByChat[chatId].find(
-          msg => msg._id === messageId
-        );
-
+        const message = state.messagesByChat[chatId].find(msg => msg._id === messageId);
         if (message) {
-          // Create new readBy array if it doesn't exist
           if (!message.readBy) {
             message.readBy = [];
           }
-
-          // Add user to readBy if not already present
           if (!message.readBy.some(reader => reader._id === userId)) {
             message.readBy.push({ _id: userId });
-            console.log('[messageSlice] Updated readBy:', message.readBy);
           }
         }
+      }
+
+      // 🔥 Update unread count dynamically
+      if (state.unreadCounts[chatId]) {
+        state.unreadCounts[chatId] = Math.max(state.unreadCounts[chatId] - 1, 0);
       }
     },
 
@@ -370,8 +362,12 @@ const messageSlice = createSlice({
   },
   extraReducers: builder => {
     builder
+      .addCase(updateUnreadCount.fulfilled, (state, action) => {
+        const { chatId, unreadCount } = action.payload;
+        state.unreadCounts[chatId] = unreadCount;
+      })
+    
       .addCase(fetchMessages.pending, (state, action) => {
-        // Only set loading true if this is the first load for this chat
         const chatId = action.meta.arg.chatId;
         if (!state.initialized[chatId]) {
           state.loading = true;
