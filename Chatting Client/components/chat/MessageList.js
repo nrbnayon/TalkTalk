@@ -250,7 +250,7 @@ const MessageList = ({
           )}
 
           <div className="relative group">
-            {message.replyTo && (
+            {message.replyTo && message.replyTo.sender && (
               <div
                 className="text-xs text-gray-600 mb-1.5 bg-gray-50 p-2.5 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors border border-gray-100"
                 onClick={() => onScrollToMessage(message.replyTo._id)}
@@ -258,13 +258,14 @@ const MessageList = ({
                 <div className="flex items-center gap-1.5 mb-1">
                   <Reply className="h-3.5 w-3.5" />
                   <span className="font-medium">
-                    {message.replyTo.sender.name}
+                    {message.replyTo.sender?.name || 'Unknown'}
                   </span>
                 </div>
-                {message.replyTo.content.substring(0, 50)}
-                {message.replyTo.content.length > 50 ? '...' : ''}
+                {message.replyTo.content?.substring(0, 50)}
+                {message.replyTo.content?.length > 50 ? '...' : ''}
               </div>
             )}
+
             <div
               className={cn(
                 'px-4 py-1 shadow-sm',
