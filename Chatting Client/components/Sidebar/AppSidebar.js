@@ -22,7 +22,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Sidebar } from '../ui/sidebar';
 import { useSocket } from '@/context/SocketContext';
@@ -42,6 +41,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { GenerateSlug } from '@/utils/GenerateSlug';
 import UserMenu from '../Auth/UserMenu';
 import { cn } from '@/lib/utils';
+import SearchUser from './SearchUser';
 
 const AppSidebar = () => {
   const { onlineUsers } = useSocket();
@@ -52,6 +52,7 @@ const AppSidebar = () => {
   const [filteredChats, setFilteredChats] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+   const [showSearch, setShowSearch] = useState(false);
   const [filterType, setFilterType] = useState('all');
 
   const userName = GenerateSlug(user?.name);
@@ -59,17 +60,6 @@ const AppSidebar = () => {
   const isUserOnline = userId => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
-
-  // console.log(
-  //   'Get Login user in AppSidebar',
-  //   user,
-  //   'My All chats:',
-  //   chats,
-  //   'Select for chat:',
-  //   selectedChat,
-  //   'Online users:',
-  //   onlineUsers
-  // );
 
   useEffect(() => {
     if (user) {
@@ -366,6 +356,8 @@ const AppSidebar = () => {
           />
         </div>
       </div>
+
+      {searchQuery && <SearchUser showSearch={searchQuery} />}
 
       {/* Tabs */}
       <div className="flex gap-2 p-2 overflow-x-auto border-b border-gray-200">
