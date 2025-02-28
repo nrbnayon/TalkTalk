@@ -68,6 +68,111 @@ const getAllMessagesFromDB = async (
   }
 };
 
+// const sendMessage = async ({
+//   content,
+//   chatId,
+//   userId,
+//   replyToId,
+//   files,
+// }: {
+//   content?: string;
+//   chatId: string;
+//   userId: string;
+//   replyToId?: string;
+//   files?: Record<string, Express.Multer.File[]>;
+// }): Promise<IMessage> => {
+//   logger.info(`[MessageService] Creating new message for chat: ${chatId}`);
+//   logger.debug(`[MessageService] Message data:`, {
+//     content: content?.substring(0, 50),
+//     chatId,
+//     userId,
+//     replyToId,
+//     filesCount: files ? Object.keys(files).length : 0,
+//   });
+
+//   // Validation
+//   if ((!content?.trim() && (!files || !Object.keys(files).length)) || !chatId) {
+//     logger.error('[MessageService] Invalid message data');
+//     throw new ApiError(
+//       httpStatus.BAD_REQUEST,
+//       'Message content or files required'
+//     );
+//   }
+
+//   const messageData: any = {
+//     sender: userId,
+//     content: content?.trim() || '',
+//     chat: chatId,
+//     readBy: [userId],
+//   };
+
+//   if (replyToId) {
+//     messageData.replyTo = replyToId;
+//   }
+
+//   // Process attachments
+//   if (files && Object.keys(files).length > 0) {
+//     logger.info(
+//       `[MessageService] Processing ${Object.keys(files).length} files`
+//     );
+//     messageData.attachments = [];
+
+//     for (const [fieldName, fileArray] of Object.entries(files)) {
+//       fileArray.forEach((file: Express.Multer.File) => {
+//         console.log(`[MessageService] Processing file: ${file.originalname}`, {
+//           file: file,
+//         });
+//         const attachment = {
+//           url: `/${fieldName}/${file.filename}`,
+//           type: getMessageType(fieldName, file.mimetype),
+//           filename: file.originalname,
+//           size: file.size,
+//           mimeType: file.mimetype,
+//         };
+//         messageData.attachments.push(attachment);
+//       });
+//     }
+
+//     messageData.messageType =
+//       messageData.attachments.length > 1
+//         ? MessageType.MIXED
+//         : messageData.attachments[0].type;
+//   } else {
+//     messageData.messageType = MessageType.TEXT;
+//   }
+
+//   logger.debug(`[MessageService] Final message data:`, messageData);
+
+//   const newMessage = await Message.create(messageData);
+//   logger.info(`[MessageService] Message created with ID: ${newMessage._id}`);
+
+//   const message = await Message.findById(newMessage._id)
+//     .populate('sender', 'name image')
+//     .populate({
+//       path: 'replyTo',
+//       populate: {
+//         path: 'sender',
+//         select: 'name image',
+//       },
+//     })
+//     .populate('chat')
+//     .populate('readBy', 'name image');
+
+//   if (!message) {
+//     logger.error('[MessageService] Failed to retrieve created message');
+//     throw new ApiError(
+//       httpStatus.INTERNAL_SERVER_ERROR,
+//       'Failed to create message'
+//     );
+//   }
+
+//   // Update chat's latest message
+//   await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
+//   logger.info(`[MessageService] Updated latest message for chat: ${chatId}`);
+
+//   return message;
+// };
+
 const sendMessage = async ({
   content,
   chatId,
@@ -96,6 +201,24 @@ const sendMessage = async ({
     throw new ApiError(
       httpStatus.BAD_REQUEST,
       'Message content or files required'
+    );
+  }
+
+  // Check if chat exists and if it's blocked
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    logger.error(`[MessageService] Chat not found with ID: ${chatId}`);
+    throw new ApiError(httpStatus.NOT_FOUND, 'Chat not found');
+  }
+
+  // Check if chat is blocked and prevent sending message
+  if (chat.blockedBy && chat.blockedBy.length > 0) {
+    logger.error(
+      `[MessageService] Cannot send message to blocked chat: ${chatId}`
+    );
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'Cannot send message to a blocked conversation'
     );
   }
 
@@ -166,9 +289,14 @@ const sendMessage = async ({
     );
   }
 
-  // Update chat's latest message
-  await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
-  logger.info(`[MessageService] Updated latest message for chat: ${chatId}`);
+  // Reset deletedBy array when new message is sent and update latest message
+  await Chat.findByIdAndUpdate(chatId, {
+    latestMessage: message._id,
+    deletedBy: [], // Clear deletedBy array when new message is sent
+  });
+  logger.info(
+    `[MessageService] Updated latest message for chat: ${chatId} and cleared deletedBy`
+  );
 
   return message;
 };
@@ -273,7 +401,7 @@ const deleteMessage = async (
 const togglePinMessage = async (
   messageId: string,
   userId: string,
-  chatId: string,
+  chatId: string
 ): Promise<IMessage> => {
   const message = await Message.findOne({ _id: messageId, chat: chatId });
   if (!message) {

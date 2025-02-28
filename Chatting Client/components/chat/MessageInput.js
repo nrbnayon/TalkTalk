@@ -9,6 +9,7 @@ import {
 import { useSocket } from '@/context/SocketContext';
 import MessageInputUI from './MessageInputUI';
 import { FileIcon, ImageIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
 const MAX_FILE_SIZE = 25 * 1024 * 1024;
 const MAX_FILES = 5;
 
@@ -308,6 +309,14 @@ const MessageInput = ({ chatId }) => {
         setAudioURL(null);
       } catch (error) {
         console.error('[MessageInput] Error in message operation:', error);
+        if (
+          error.message ===
+          ' ⚡ Custom Error Rollercoaster:: Cannot send message to a blocked conversation'
+        ) {
+          toast.error('Cannot send message to a blocked conversation.');
+        } else {
+          toast.error('Cannot send message to a blocked conversation.');
+        }
       } finally {
         setIsSending(false);
       }

@@ -323,7 +323,7 @@ const AppSidebar = () => {
                 {isBlocked ? 'Unblock' : 'Block'}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => handleDeleteChat(e, chat._id)}
+                onClick={(e) => handleDeleteChat(e, chat._id)}
                 className="flex items-center gap-2 text-red-500"
               >
                 <Trash2 className="h-4 w-4" />
