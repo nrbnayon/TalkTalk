@@ -315,7 +315,9 @@ const MessageInput = ({ chatId }) => {
         ) {
           toast.error('Cannot send message to a blocked conversation.');
         } else {
-          toast.error('Cannot send message to a blocked conversation.');
+          toast.error(
+            'Maybe conversation blocked by your friend. Cannot send message.'
+          );
         }
       } finally {
         setIsSending(false);
