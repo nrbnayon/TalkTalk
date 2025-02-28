@@ -6,16 +6,11 @@ import {
   MoreVertical,
   Pin,
   Trash2,
-  EyeOff,
   Edit,
   MessageCircle,
-  Video,
   Star,
   Archive,
-  Filter,
   ShieldBan,
-  UserPlus2,
-  UserPlus2Icon,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +19,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Sidebar } from '../ui/sidebar';
 import { useSocket } from '@/context/SocketContext';
@@ -36,7 +30,6 @@ import {
   selectChat,
   updateChatPin,
   deleteChat,
-  updateChatHidden,
   blockUnblockChat,
 } from '@/redux/features/chat/chatSlice';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,9 +39,11 @@ import { UserX, UserSearch } from 'lucide-react';
 import UserMenu from '../Auth/UserMenu';
 import { cn } from '@/lib/utils';
 import SearchUser from './SearchUser';
+import { updateUnreadCount } from '@/redux/features/messages/messageSlice';
+import { useRouter } from 'next/navigation';
 
 const AppSidebar = () => {
-  const { onlineUsers } = useSocket();
+  const { onlineUsers, socket } = useSocket();
   const dispatch = useDispatch();
   const { user } = useSelector(state => state.auth);
   const { chats, selectedChat } = useSelector(state => state.chat);
@@ -57,22 +52,33 @@ const AppSidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showSearch, setShowSearch] = useState(true);
+  const router = useRouter();
+
   const userName = GenerateSlug(user?.name);
 
   const isUserOnline = userId => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
 
-  // console.log(
-  //   'Get Login user in AppSidebar',
-  //   user,
-  //   'My All chats:',
-  //   chats,
-  //   'Select for chat:',
-  //   selectedChat,
-  //   'Online users:',
-  //   onlineUsers
-  // );
+  const togglePin = chatId => {
+    const chat = chats.find(chat => chat._id === chatId);
+    const isPinned = chat.pinnedBy?.includes(user?._id);
+
+    if (isPinned) {
+      dispatch(updateChatPin({ chatId, action: 'unpin' }));
+    } else {
+      // Check if we already have 4 pinned chats
+      const pinnedChats = chats.filter(chat =>
+        chat.pinnedBy?.includes(user?._id)
+      );
+
+      if (pinnedChats.length < 4) {
+        dispatch(updateChatPin({ chatId, action: 'pin' }));
+      } else {
+        alert('You can only pin up to 4 chats');
+      }
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -81,9 +87,15 @@ const AppSidebar = () => {
   }, [dispatch, user]);
 
   useEffect(() => {
-    if (!chats) return;
+    if (!chats || !user) return;
 
     let filtered = [...chats];
+
+    // Add isPinned property to each chat for easier handling
+    filtered = filtered.map(chat => ({
+      ...chat,
+      isPinned: chat.pinnedBy?.includes(user._id),
+    }));
 
     // Apply search filter
     if (searchQuery) {
@@ -102,28 +114,29 @@ const AppSidebar = () => {
     switch (filterType) {
       case 'unread':
         filtered = filtered.filter(
-          chat => !chat.latestMessage?.readBy?.includes(user?._id)
+          chat => !chat.latestMessage?.readBy?.includes(user._id)
         );
         break;
       case 'pinned':
-        filtered = filtered.map(chat => ({
-          ...chat,
-          isPinned: chat.pinnedBy?.includes(user?._id),
-        }));
+        filtered = filtered.filter(chat => chat.pinnedBy?.includes(user._id));
         break;
       case 'archived':
         filtered = filtered.filter(chat => chat.isArchived);
         break;
     }
 
-    // Sort chats
+    // Sort chats: pinned first, then by most recent message
     filtered.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return (
-        new Date(b.latestMessage?.createdAt || b.createdAt) -
-        new Date(a.latestMessage?.createdAt || a.createdAt)
-      );
+      // First by pin status
+      if (a.pinnedBy?.includes(user._id) && !b.pinnedBy?.includes(user._id))
+        return -1;
+      if (!a.pinnedBy?.includes(user._id) && b.pinnedBy?.includes(user._id))
+        return 1;
+
+      // Then by message recency
+      const timeA = new Date(a.latestMessage?.createdAt || a.createdAt);
+      const timeB = new Date(b.latestMessage?.createdAt || b.createdAt);
+      return timeB - timeA;
     });
 
     setFilteredChats(filtered);
@@ -148,7 +161,8 @@ const AppSidebar = () => {
       id: 'pinned',
       label: 'Pinned',
       icon: <Pin className="h-5 w-5" />,
-      count: chats?.filter(chat => chat.isPinned)?.length || 0,
+      count:
+        chats?.filter(chat => chat.pinnedBy?.includes(user?._id))?.length || 0,
     },
     {
       id: 'archived',
@@ -157,22 +171,6 @@ const AppSidebar = () => {
       count: chats?.filter(chat => chat.isArchived)?.length || 0,
     },
   ];
-
-  useEffect(() => {
-    if (!chats) return;
-
-    let sortedChats = [...chats];
-
-    // Sort by latest message time
-    sortedChats.sort((a, b) => {
-      const lastMessageTimeA = a.latestMessage?.createdAt || a.createdAt;
-      const lastMessageTimeB = b.latestMessage?.createdAt || b.createdAt;
-
-      return new Date(lastMessageTimeB) - new Date(lastMessageTimeA);
-    });
-
-    setFilteredChats(sortedChats);
-  }, [chats]);
 
   const handleTabChange = tabId => {
     setActiveTab(tabId);
@@ -192,31 +190,19 @@ const AppSidebar = () => {
   const handlePinChat = (e, chatId) => {
     e.preventDefault();
     e.stopPropagation();
-
-    const chatToToggle = chats.find(chat => chat._id === chatId);
-    const isPinned = chatToToggle.pinnedBy?.includes(user?._id);
-    if (isPinned) {
-      dispatch(updateChatPin({ chatId, action: 'pin' }));
-      return;
-    }
-
-    // Check if we already have 4 pinned chats
-    const userPinnedChats = chats.filter(chat =>
-      chat.pinnedBy?.includes(user?._id)
-    );
-
-    // Only allow pinning if we have less than 4 pins
-    if (userPinnedChats.length < 4) {
-      dispatch(updateChatPin({ chatId, action: 'pin' }));
-    } else {
-      alert('You can only pin up to 4 chats');
-    }
+    togglePin(chatId);
   };
 
   const handleBlockChat = (e, chatId) => {
     e.preventDefault();
     e.stopPropagation();
     dispatch(blockUnblockChat(chatId));
+  };
+  const handleDeleteChat = (e, chatId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`welcome-${userName}`);
+    dispatch(deleteChat(chatId));
   };
 
   const renderChatItem = chat => {
@@ -225,9 +211,13 @@ const AppSidebar = () => {
 
     const isOnline = isUserOnline(otherUser?._id);
     const isBlocked = chat.blockedBy?.includes(user?._id);
+    const isPinned = chat.pinnedBy?.includes(user?._id);
 
+    // Move useSelector hook outside of renderChatItem
     const unreadCount =
-      lastMessage && !lastMessage.readBy?.includes(user?._id) ? 1 : 0;
+      lastMessage && !lastMessage.readBy?.includes(user?._id)
+        ? chat.unreadCount || 0
+        : 0;
 
     return (
       <div
@@ -236,7 +226,7 @@ const AppSidebar = () => {
           selectedChat?._id === chat._id
             ? 'bg-blue-100 hover:bg-blue-100'
             : 'hover:bg-gray-50'
-        } ${chat.isPinned ? 'bg-blue-50' : ''}`}
+        } ${isPinned ? 'bg-blue-50' : ''}`}
       >
         <Link
           href={`/chat/${chat._id}`}
@@ -254,7 +244,7 @@ const AppSidebar = () => {
               }`}
             />
             {/* Show pin icon at top right */}
-            {chat.isPinned && (
+            {isPinned && (
               <Pin
                 className="absolute -top-1 -right-1 h-4 w-4 text-blue-500"
                 fill="currentColor"
@@ -262,15 +252,11 @@ const AppSidebar = () => {
             )}
             {/* Show block icon at top left */}
             {isBlocked && (
-              <ShieldBan className="absolute -bottom-1 -right-1 h-4 w-4 text-red-500" />
-            )}
-
-            {/* {chat.isBlocked && (
               <ShieldBan
-                className="absolute -bottom-1 -right-1 h-4 w-4 text-red-500"
+                className="absolute -bottom-0.5 -right-0.5 h-4 w-4 text-red-500"
                 fill="currentColor"
               />
-            )} */}
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -327,21 +313,8 @@ const AppSidebar = () => {
                 className="flex items-center gap-2"
               >
                 <Pin className="h-4 w-4" />
-                {chat.isPinned ? 'Unpin' : 'Pin'}
+                {isPinned ? 'Unpin' : 'Pin'}
               </DropdownMenuItem>
-              {/* <DropdownMenuItem className='flex items-center gap-2'>
-                <Video className='h-4 w-4' />
-                Start video call
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => dispatch(updateChatHidden({ chatId: chat._id }))}
-                className='flex items-center gap-2'
-              >
-                <EyeOff className='h-4 w-4' />
-                Hide chat
-              </DropdownMenuItem> */}
-              {/* <DropdownMenuSeparator /> */}
               <DropdownMenuItem
                 onClick={e => handleBlockChat(e, chat._id)}
                 className="flex items-center gap-2 text-red-500"
@@ -350,7 +323,7 @@ const AppSidebar = () => {
                 {isBlocked ? 'Unblock' : 'Block'}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => dispatch(deleteChat(chat._id))}
+                onClick={() => handleDeleteChat(e, chat._id)}
                 className="flex items-center gap-2 text-red-500"
               >
                 <Trash2 className="h-4 w-4" />
@@ -375,10 +348,7 @@ const AppSidebar = () => {
                 <Edit className="h-5 w-5" />
               </button>
             </Tooltip>{' '}
-            <Tooltip content="Filter">
-              {/* <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full">
-                <Filter className="h-5 w-5" />
-              </button> */}
+            <Tooltip content="Search all user">
               <button
                 onClick={() => setShowSearch(!showSearch)}
                 className="hover:cursor-pointer tooltip"

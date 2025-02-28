@@ -13,6 +13,7 @@ import {
   StopCircle,
   AlertCircle,
   Reply,
+  Unlock,
 } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import {
@@ -28,6 +29,7 @@ import Image from 'next/image';
 import { DialogDescription } from '@radix-ui/react-dialog';
 import { useSocket } from '@/context/SocketContext';
 import { useSelector } from 'react-redux';
+import { selectMessagesByChatId } from '@/redux/features/messages/messageSlice';
 
 const MessageInputUI = ({
   messageText,
@@ -59,11 +61,27 @@ const MessageInputUI = ({
   chatId,
   textareaRef,
   fileInputRef,
+  handleUnblockChat,
 }) => {
   const [isTyping, setIsTyping] = useState(false);
   const { user } = useSelector(state => state.auth);
   const typingTimeoutRef = useRef(null);
   const { startTyping, stopTyping } = useSocket();
+  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage?.chat?.blockedBy) {
+      }
+    }
+  }, [messages]);
+
+  const { selectedChat } = useSelector(state => state.chat);
+  const chatData = selectedChat;
+  const blockedBy = chatData?.blockedBy || messages?.[0]?.chat?.blockedBy || [];
+  const isBlockedByCurrentUser = blockedBy.includes(user._id);
+  const isBlockedByOtherUser = !isBlockedByCurrentUser;
+
   const handleTyping = useCallback(
     value => {
       startTyping(chatId, {
@@ -73,12 +91,10 @@ const MessageInputUI = ({
         isTyping: true,
       });
 
-      // Clear existing timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
 
-      // Set new timeout
       typingTimeoutRef.current = setTimeout(() => {
         stopTyping(chatId, {
           userId: user._id,
@@ -127,6 +143,46 @@ const MessageInputUI = ({
       </div>
     );
   };
+
+  // Render blocked state UI
+  if (blockedBy.length > 0) {
+    if (isBlockedByCurrentUser) {
+      return (
+        <div className="border-t bg-gray-50 p-4">
+          <div className="flex flex-col items-center justify-center py-4">
+            <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-gray-700 font-medium mb-2">
+              You have blocked this conversation
+            </p>
+            <p className="text-gray-500 text-sm mb-4">
+              You won&apos;t receive messages from this user
+            </p>
+            <Button
+              onClick={() => handleUnblockChat(chatId)}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              <Unlock className="h-4 w-4 mr-2" />
+              Unblock
+            </Button>
+          </div>
+        </div>
+      );
+    } else if (isBlockedByOtherUser) {
+      return (
+        <div className="border-t bg-gray-50 p-4">
+          <div className="flex flex-col items-center justify-center py-4">
+            <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
+            <p className="text-gray-700 font-medium mb-2">
+              You can&apos;t send messages to this conversation
+            </p>
+            <p className="text-gray-500 text-sm">
+              You&apos;ve been blocked by this user
+            </p>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="border-t bg-white">

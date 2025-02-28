@@ -39,7 +39,7 @@ export async function GET(request) {
     
     // Try to log the response text for debugging
     const responseText = await response.text();
-    console.log('Response text preview:', responseText.substring(0, 200));
+    // console.log('Response text preview:', responseText.substring(0, 200));
     
     // Try to parse JSON
     let data;
@@ -51,7 +51,7 @@ export async function GET(request) {
         { 
           success: false, 
           message: 'Invalid response format from server',
-          debug: responseText.substring(0, 500)  // Include some debug info
+          debug: responseText.substring(0, 500)  
         },
         { status: 500 }
       );

@@ -10,10 +10,8 @@ import MessageInput from '@/components/chat/MessageInput';
 import { accessChat, selectChat } from '@/redux/features/chat/chatSlice';
 import {
   fetchMessages,
-  selectMessagesByChatId,
   selectMessagesLoading,
 } from '@/redux/features/messages/messageSlice';
-import { useChatMessages } from '@/hooks/useChatMessages';
 import { LottieLoading } from '@/components/Animations/Loading';
 import { MessagesSquare } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
@@ -24,23 +22,15 @@ const ChatView = () => {
   const chatId = params?.chat;
   const { user } = useSelector(state => state.auth);
   const { chats, selectedChat } = useSelector(state => state.chat);
-  const messages = useSelector(state => selectMessagesByChatId(state, chatId));
   const loading = useSelector(selectMessagesLoading);
   const initialized = useSelector(state => state.messages.initialized[chatId]);
   const { joinChat, leaveChat } = useSocket();
-  const { sendMessage, typingUsers } = useChatMessages(chatId, messages);
-
   const otherUser = useMemo(() => {
     return selectedChat?.users?.find(u => u._id !== user?._id);
   }, [selectedChat?.users, user?._id]);
 
   useEffect(() => {
     if (user && (selectedChat || chatId)) {
-      // console.log('Get chat id, user, and selectedChat', {
-      //   chatId,
-      //   user,
-      //   selectedChat,
-      // });
       joinChat(chatId, user);
       const existingChat = chats.find(chat => chat._id === chatId);
       if (existingChat) {
@@ -97,13 +87,8 @@ const ChatView = () => {
   return (
     <div className="flex flex-col h-screen w-full bg-white shadow-lg rounded-lg overflow-hidden">
       <ChatHeader otherUser={otherUser} />
-      <MessageArea
-        // messages={messages}
-        currentUser={user}
-        chatId={chatId}
-        // typingUsers={typingUsers}
-      />
-      <MessageInput chatId={chatId} sendMessage={sendMessage} />
+      <MessageArea currentUser={user} chatId={chatId} />
+      <MessageInput chatId={chatId} />
     </div>
   );
 };

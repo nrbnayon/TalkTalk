@@ -10,6 +10,7 @@ import { Types } from 'mongoose';
 import { MessageService } from '../app/modules/messages/messages.service';
 import { logger } from '../shared/logger';
 import { Chat } from '../app/modules/chat/chat.model';
+import { Message } from '../app/modules/messages/messages.model';
 
 interface ICallSignal {
   type: 'offer' | 'answer' | 'candidate';
@@ -473,6 +474,8 @@ class SocketHelper {
     });
   }
 
+  
+
   private static async handleDisconnect(socket: Socket, io: Server) {
     const userId = this.connectedSockets.get(socket.id);
 
@@ -555,6 +558,20 @@ class SocketHelper {
       socket.on('message-reaction', (data: IMessageReactionData) =>
         this.handleMessageReaction(socket, io, data)
       );
+      socket.on('messageRead', async ({ chatId, userId }) => {
+        await Message.updateMany(
+          { chat: chatId, readBy: { $ne: userId } },
+          { $addToSet: { readBy: userId } }
+        );
+
+        // Emit updated chat to clients
+        const updatedChat = await Chat.findById(chatId)
+          .populate('users', 'name email image onlineStatus')
+          .populate('latestMessage');
+
+        io.to(chatId).emit('updateChat', updatedChat);
+      });
+
 
       socket.on(
         'delete-message',

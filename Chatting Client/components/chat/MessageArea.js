@@ -48,7 +48,6 @@ const MessagesArea = ({ currentUser, chatId }) => {
   const messageContainerRef = useRef(null);
   const { typingUsers } = useChatMessages(chatId, messages);
 
-  console.log('MessagesArea get message meta:::', meta);
   // Initialize messages
   useEffect(() => {
     if (chatId && chatId !== 'undefined') {
