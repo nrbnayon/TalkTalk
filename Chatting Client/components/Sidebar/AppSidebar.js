@@ -54,8 +54,6 @@ const AppSidebar = () => {
   const [showSearch, setShowSearch] = useState(true);
   const router = useRouter();
 
-  const userName = GenerateSlug(user?.name);
-
   const isUserOnline = userId => {
     return onlineUsers.some(onlineUser => onlineUser._id === userId);
   };
@@ -201,7 +199,7 @@ const AppSidebar = () => {
   const handleDeleteChat = (e, chatId) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`welcome-${userName}`);
+    router.push('/');
     dispatch(deleteChat(chatId));
   };
 
